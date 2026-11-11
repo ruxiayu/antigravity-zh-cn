@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README_EN.md)
 
-> 专为 **Antigravity Desktop (Electron)** 打造的开源、非侵入式深度简体中文补丁工具，内置 **6,600+ 词条全量 UI 词典** 与 **前端动态 DOM / 主进程双层汉化引擎**，支持一键备份、自动检测安装目录、安全重装及无损还原。
+> 专为 **Antigravity Desktop / Antigravity IDE** 打造的 **Antigravity 汉化**开源工具（**Antigravity汉化** / 简体中文补丁包），内置 **6,658 条全量 UI 词典** 与 **前端动态 DOM / 主进程双层汉化引擎**，支持一键备份、自动检测安装目录、安全重装及无损还原。
 
 ## 核心特性
 
