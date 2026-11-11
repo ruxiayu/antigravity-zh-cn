@@ -24,7 +24,7 @@ echo   [5] 运行本地汉化引擎自检测试 (Node E2E)
 echo   [0] 退出
 echo.
 set "CHOICE="
-set /p "CHOICE=请输入选项编号 [0-5] 并按回车: "
+set /p "CHOICE=请输入选项编号 [0-5] 并按回车: " || goto :END
 
 if "%CHOICE%"=="1" goto :ACTION_INSTALL_BLOCK
 if "%CHOICE%"=="2" goto :ACTION_INSTALL_KEEP
@@ -34,7 +34,7 @@ if "%CHOICE%"=="5" goto :ACTION_TEST
 if "%CHOICE%"=="0" goto :END
 echo.
 echo [提示] 无效输入 "%CHOICE%"，请重新选择。
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 goto :MENU
 
 :CHECK_ENV
@@ -73,7 +73,7 @@ if not defined CUSTOM_DIR exit /b 0
 if "%CUSTOM_DIR:~-1%"=="\" set "CUSTOM_DIR=%CUSTOM_DIR:~0,-1%"
 if not defined CUSTOM_DIR exit /b 0
 
-if /i "%CUSTOM_DIR:~-8%"=="app.asar" (
+if /i "%CUSTOM_DIR:~-5%"==".asar" (
     set "EXTRA_ARGS=--asar "%CUSTOM_DIR%""
     for /f "usebackq delims=" %%E in (`%PY_CMD% "%ROOT_DIR%src\localize.py" --asar "%CUSTOM_DIR%" --print-exe 2^>nul`) do set "AGY_EXE=%%E"
 ) else (
@@ -86,7 +86,7 @@ exit /b 0
 echo [1/2] 正在检查并关闭运行中的 Antigravity 进程...
 taskkill /F /IM Antigravity.exe >nul 2>&1
 taskkill /F /IM language_server_windows_x64.exe >nul 2>&1
-timeout /t 2 /nobreak >nul
+ping -n 3 127.0.0.1 >nul
 exit /b 0
 
 :ASK_LAUNCH
@@ -118,7 +118,7 @@ echo [2/2] 正在执行汉化补丁构建与注入...
 if errorlevel 1 (
     echo.
     echo [失败] 汉化注入未完成，请检查上方错误信息。
-    pause
+    call :WAIT_KEY
     goto :MENU
 )
 echo.
@@ -126,7 +126,7 @@ echo [完成] 深度汉化注入成功！
 echo 提示：建议在 Antigravity 扩展商店确认已安装微软官方 "Chinese (Simplified) Language Pack"，以实现 VS Code 底座 + 内核 UI 双层完整中文。
 call :ASK_LAUNCH
 echo.
-pause
+call :WAIT_KEY
 goto :MENU
 
 :ACTION_RESTORE
@@ -138,12 +138,12 @@ echo [2/2] 正在恢复官方原版 app.asar...
 if errorlevel 1 (
     echo.
     echo [失败] 还原未完成，请检查上方错误信息。
-    pause
+    call :WAIT_KEY
     goto :MENU
 )
 call :ASK_LAUNCH
 echo.
-pause
+call :WAIT_KEY
 goto :MENU
 
 :ACTION_STATUS
@@ -151,11 +151,18 @@ echo.
 call :RESOLVE_TARGET
 %PY_CMD% "%ROOT_DIR%src\localize.py" status %EXTRA_ARGS%
 echo.
-pause
+call :WAIT_KEY
 goto :MENU
 
 :ACTION_TEST
 echo.
+where node >nul 2>&1
+if errorlevel 1 (
+    echo [提示] 未检测到 Node.js，仅开发 E2E 自检需要 Node.js；日常汉化与还原无需安装。
+    echo.
+    call :WAIT_KEY
+    goto :MENU
+)
 node "%ROOT_DIR%tests\verify_e2e.js"
 if errorlevel 1 (
     echo.
@@ -165,12 +172,18 @@ if errorlevel 1 (
     echo [通过] 所有自动化自检项均已通过。
 )
 echo.
-pause
+call :WAIT_KEY
 goto :MENU
+
+:WAIT_KEY
+set "_WAIT="
+set /p "_WAIT=请按回车键返回主菜单... "
+exit /b 0
 
 :EXIT_FAIL
 echo.
-pause
+set "_WAIT="
+set /p "_WAIT=请按回车键退出... "
 exit /b 1
 
 :END
