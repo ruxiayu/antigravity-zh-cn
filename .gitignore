@@ -1,0 +1,35 @@
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Proprietary Antigravity / Electron binaries & local backups (NEVER commit)
+*.asar
+*.asar.unpacked/
+*.bak
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.zip
+
+# Build & temporary directories
+dist_build/
+build/
+release/
+*.spec
+tmp/
+logs/

@@ -1,0 +1,43 @@
+name: CI Verification
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  verify:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Compile Python sources
+        run: python -m py_compile src/asar_codec.py src/patches_main.py src/localize.py scripts/build_standalone.py tests/test_asar_codec.py
+
+      - name: Verify JavaScript syntax
+        run: node --check src/engine_preload.js && node --check tests/verify_e2e.js
+
+      - name: Run Python ASAR codec unit tests
+        run: python -m unittest tests/test_asar_codec.py
+
+      - name: Validate CLI help
+        run: python src/localize.py --help
+
+      - name: Run E2E localization tests
+        run: npm test

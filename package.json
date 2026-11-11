@@ -1,0 +1,24 @@
+{
+  "name": "antigravity-zh-cn",
+  "version": "2.31.0",
+  "description": "Deep Simplified Chinese localization patcher and dynamic DOM translation engine for Antigravity IDE",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/verify_e2e.js",
+    "check:js": "node --check src/engine_preload.js && node --check tests/verify_e2e.js",
+    "status": "python src/localize.py status",
+    "install:zh": "python src/localize.py install",
+    "restore": "python src/localize.py restore"
+  },
+  "keywords": [
+    "antigravity",
+    "localization",
+    "i18n",
+    "zh-CN",
+    "chinese"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

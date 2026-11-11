@@ -1,0 +1,50 @@
+name: "漏翻界面反馈 (Missing Translation)"
+description: 反馈尚未汉化、翻译不准确或动态文本未正确触发替换的界面位置
+title: "[漏翻反馈] "
+labels: ["translation", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢帮助完善汉化覆盖率！提交前请先确认已在扩展商店安装微软官方 `Chinese (Simplified) Language Pack`，并确保截图/文本中不包含个人隐私、邮箱或内部项目名。
+  - type: input
+    id: app_version
+    attributes:
+      label: Antigravity 客户端版本
+      description: 可在菜单“关于 Antigravity”或运行 `python src/localize.py status` 查看
+      placeholder: "例如：2.31.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: ui_location
+    attributes:
+      label: 出现位置 / 操作路径
+      description: 说明如何触发该界面（例如：设置 -> Voice mode、右键菜单、悬浮 Tooltip 等）
+      placeholder: "例如：右上角配额面板悬浮 Tooltip"
+    validations:
+      required: true
+  - type: textarea
+    id: original_text
+    attributes:
+      label: 原始英文文本与建议译文
+      description: 请尽量贴出准确英文原文（如有），以及您建议的中文译文
+      placeholder: |
+        原文：...
+        建议译文：...
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: 界面截图或补充上下文
+      description: 建议直接拖拽截图到此处（注意裁剪掉用户名、邮箱及个人项目路径）

@@ -1,0 +1,73 @@
+name: Build & Release Standalone
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: Antigravity-zh-cn-win-x64.exe
+          - os: ubuntu-latest
+            artifact: antigravity-zh-cn-linux-x64
+          - os: macos-latest
+            artifact: antigravity-zh-cn-macos-arm64
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Build standalone binary
+        run: python scripts/build_standalone.py --name "${{ matrix.artifact }}"
+
+      - name: Normalize Windows executable name
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem release/*.exe | Select-Object -First 1
+          if ($exe.Name -ne "${{ matrix.artifact }}") {
+            Move-Item $exe.FullName "release/${{ matrix.artifact }}" -Force
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/${{ matrix.artifact }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist_artifacts
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd dist_artifacts
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist_artifacts/*
+          generate_release_notes: true

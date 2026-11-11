@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 贡献指南 (Contributing Guide)
+    url: https://github.com/ruxiayu/antigravity-zh-cn/blob/main/CONTRIBUTING.md
+    about: 提交词条或代码 PR 前请先阅读本地检查流程与隐私规范
