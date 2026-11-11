@@ -547,12 +547,46 @@ if (distDir) {
   const ctxTpl = ipcSb.buildContextMenuTemplate(
     [
       { id: '1', label: 'Rename Conversation' },
-      { id: '2', label: 'Sub', type: 'submenu', submenu: [{ id: '2a', label: 'Delete Permanently' }] },
+      {
+        id: 'copy',
+        label: 'Copy',
+        type: 'submenu',
+        submenu: [
+          { id: 'c1', label: 'Conversation Name' },
+          { id: 'c2', label: 'Conversation ID' },
+          { id: 'c3', label: 'Workspace Name' },
+          { id: 'c4', label: 'Project Name' },
+        ],
+      },
+      {
+        id: 'split',
+        label: 'Split',
+        type: 'submenu',
+        submenu: [
+          { id: 's1', label: 'Split Right' },
+          { id: 's2', label: 'Split Down' },
+          { id: 's3', label: 'Replace with New' },
+          { id: 's4', label: 'Remove from Split' },
+        ],
+      },
+      { id: 'grp', label: 'Move to Group: Work' },
+      { id: 'sub', label: 'Sub', type: 'submenu', submenu: [{ id: '2a', label: 'Delete Permanently' }] },
     ],
     () => {}
   );
   assert.strictEqual(ctxTpl[0].label, '重命名会话');
-  assert.strictEqual(ctxTpl[1].submenu[0].label, '彻底删除');
+  assert.strictEqual(ctxTpl[1].label, '复制');
+  assert.strictEqual(ctxTpl[1].submenu[0].label, '对话名称');
+  assert.strictEqual(ctxTpl[1].submenu[1].label, '对话 ID');
+  assert.strictEqual(ctxTpl[1].submenu[2].label, '工作区名称');
+  assert.strictEqual(ctxTpl[1].submenu[3].label, '项目名称');
+  assert.strictEqual(ctxTpl[2].label, '拆分');
+  assert.strictEqual(ctxTpl[2].submenu[0].label, '向右拆分');
+  assert.strictEqual(ctxTpl[2].submenu[1].label, '向下拆分');
+  assert.strictEqual(ctxTpl[2].submenu[2].label, '替换为新对话');
+  assert.strictEqual(ctxTpl[2].submenu[3].label, '从拆分视图移除');
+  assert.strictEqual(ctxTpl[3].label, '移动到分组：Work');
+  assert.strictEqual(ctxTpl[4].submenu[0].label, '彻底删除');
   console.log(`ALL E2E + ASAR DIST CHECKS PASSED (${assertCount} DOM assertions + 12 dist modules)!`);
 } else {
   console.log(`ALL E2E CHECKS PASSED (${assertCount} DOM assertions + MutationObserver + ${dictEntries.length} dict entries)!`);

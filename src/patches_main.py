@@ -138,10 +138,32 @@ const contextMenuDict = {
     'Reveal in Finder': '在访达中显示',
     'Share': '分享',
     'Export': '导出',
-    'Duplicate': '创建副本'
+    'Duplicate': '创建副本',
+    'Conversation Name': '对话名称',
+    'Conversation ID': '对话 ID',
+    'Workspace Name': '工作区名称',
+    'Worktree Name': '工作树名称',
+    'Project Name': '项目名称',
+    'Split Right': '向右拆分',
+    'Split Down': '向下拆分',
+    'Replace with New': '替换为新对话',
+    'Remove from Split': '从拆分视图移除',
+    'View Debug': '查看调试',
+    'Fork': '派生',
+    'Fork in Current Workspace': '在当前工作区中创建分支对话',
+    'Fork in Shared Workspace': '在共享工作区中创建分支对话',
+    'Fork in New Workspace': '在新工作区中创建分支对话',
+    'Stop': '停止',
+    'Telemetry': '遥测数据',
+    'Move to Group': '移动到分组',
+    'New Group': '新建分组',
+    'Remove from Group': '从分组移除'
 };
 function translateContextMenuLabel(label) {
     if (!label) return '';
+    if (label.startsWith('Move to Group: ')) {
+        return '移动到分组：' + label.slice(15);
+    }
     return contextMenuDict[label] || contextMenuDict[label.trim()] || label;
 }
 
@@ -451,8 +473,13 @@ def patch_ipc_handlers(dist_dir: Path) -> None:
         )
         text = text.replace("label: item.label ?? '',", "label: translateContextMenuLabel(item.label) ?? '',")
     else:
-        dict_part = CONTEXT_MENU_DICT_AND_FN.strip().split("function translateContextMenuLabel")[0].strip()
-        text = re.sub(r"const\s+contextMenuDict\s*=\s*\{[\s\S]*?\n\s*\};", dict_part, text)
+        updated_block = CONTEXT_MENU_DICT_AND_FN.strip().rsplit("function buildContextMenuTemplate", 1)[0].strip()
+        text = re.sub(
+            r"const\s+contextMenuDict\s*=\s*\{[\s\S]*?\n\s*\};?\s*\nfunction\s+translateContextMenuLabel\([^\)]*\)\s*\{[\s\S]*?\n\}",
+            updated_block,
+            text,
+            count=1,
+        )
 
     text = apply_pairs(text, REPLACEMENT_TABLES["ipcHandlers.js"])
     target.write_text(text, encoding="utf-8")

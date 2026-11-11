@@ -13,7 +13,7 @@
   - **前端动态 DOM 引擎 (`src/engine_preload.js`)**：
     - `MutationObserver` + Shadow DOM 穿透监听，支持弹窗 (`dialog` / `alertdialog`)、悬浮提示 (`tooltip` / `popover`)、设置面板、模型选择卡片与用量面板。
     - 智能动态规则：跨 DOM 节点剩余额度重组（如 `77% left` → `77% 剩余`）、限额与倒计时格式转换（`5h limit` → `5小时限额`、`Resets in 2d 17h` → `2天17小时后重置`）、动态模型组 Tooltip 拼接及语音/通知设置本地化。
-    - 词典覆盖 **6,618 条**官方界面词条（持续维护）。
+    - 词典覆盖 **6,629 条**官方界面词条（持续维护）。
   - **Electron 主进程原生模块 (`src/patches_main.py`)**：
     - `dist/menu.js`：系统顶部原生应用菜单（文件/编辑/视图/窗口/帮助及动态 WSL 子菜单）。
     - `dist/ipcHandlers.js`：会话与消息原生右键上下文菜单及原生弹窗对话框。
