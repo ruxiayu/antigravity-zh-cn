@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +24,7 @@ from asar_codec import (
     read_header as read_asar_header,
     read_text_entry as read_asar_text_entry,
 )
-from patches_main import PRELOAD_MARKERS, apply_all_patches
+from patches_main import PATCH_VERSION, PRELOAD_MARKERS, REPO_URL, apply_all_patches
 
 BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
 DEFAULT_DICT = BUNDLE_ROOT / "dict" / "master_merged_dict.json"
@@ -344,10 +346,61 @@ def cmd_status(args: argparse.Namespace) -> int:
     print(f"Install ASAR   : {target_asar}")
     print(f"Executable     : {exe_path or 'Not found'}")
     print(f"App Version    : {read_asar_version(target_asar)}")
+    print(f"Patch Version  : {PATCH_VERSION}")
     print(f"Localized      : {'Yes' if is_asar_localized(target_asar) else 'No (Official)'}")
     print(f"Backup Present : {'Yes (' + str(backup_asar) + ')' if backup_asar.is_file() else 'No'}")
     print(f"Unpacked Files : {unpacked}")
     print(f"Dict Entries   : {len(dictionary)}")
+    return 0
+
+
+def _parse_semver_tuple(ver: str) -> tuple[int, ...]:
+    cleaned = ver.strip().lstrip("vV").split("-", 1)[0].split("+", 1)[0]
+    parts = []
+    for seg in cleaned.split("."):
+        try:
+            parts.append(int(seg))
+        except ValueError:
+            parts.append(0)
+    return tuple(parts)
+
+
+def cmd_check_update(_args: argparse.Namespace | None = None) -> int:
+    """Query GitHub latest release cleanly using stdlib urllib (read-only)."""
+    api_url = "https://api.github.com/repos/ruxiayu/antigravity-zh-cn/releases/latest"
+    print(f"Current Patch  : v{PATCH_VERSION}")
+    print(f"Release Source : {REPO_URL}/releases")
+    req = urllib.request.Request(
+        api_url,
+        headers={
+            "User-Agent": f"antigravity-zh-cn/{PATCH_VERSION}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        print(f"Check Status   : HTTP {exc.code} (可前往 Releases 页面查看最新版本)", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"Check Status   : 请求失败 ({exc})", file=sys.stderr)
+        return 1
+
+    latest_tag = str(data.get("tag_name") or "").strip()
+    latest_ver = latest_tag.lstrip("vV")
+    html_url = str(data.get("html_url") or f"{REPO_URL}/releases/latest")
+    if not latest_ver:
+        print("Check Status   : 未解析到最新 Release 版本号", file=sys.stderr)
+        return 1
+
+    has_update = _parse_semver_tuple(latest_ver) > _parse_semver_tuple(PATCH_VERSION)
+    print(f"Latest Release : {latest_tag}")
+    print(f"Download URL   : {html_url}")
+    if has_update:
+        print("Update Advice  : 发现新版本汉化！请下载新版发布包或更新本地仓库后执行 install。")
+    else:
+        print("Update Advice  : 当前本地汉化工具已是最新版本。")
     return 0
 
 
@@ -452,16 +505,22 @@ def run_interactive_menu(base_args: argparse.Namespace) -> int:
             "  [2] 注入深度汉化（保留官方自动更新）\n"
             "  [3] 恢复官方原版（从 app.asar.original.bak 无损还原）\n"
             "  [4] 查看当前 Antigravity 安装与汉化状态\n"
+            "  [5] 检查 GitHub 最新汉化包更新\n"
             "  [0] 退出\n"
         )
-        choice = input("请输入选项编号 [0-4]: ").strip()
+        choice = input("请输入选项编号 [0-5]: ").strip()
         if choice == "0":
             return 0
-        if choice not in {"1", "2", "3", "4"}:
+        if choice not in {"1", "2", "3", "4", "5"}:
             print(f"[提示] 无效输入: {choice!r}")
             continue
 
         try:
+            if choice == "5":
+                cmd_check_update(base_args)
+                input("\n按回车键返回主菜单...")
+                continue
+
             exe_path = _resolve_interactive_target(base_args)
             run_args = argparse.Namespace(
                 app_dir=base_args.app_dir,
@@ -529,6 +588,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p_build.add_argument("--output-asar", required=True, help="Output localized app.asar")
     p_build.add_argument("--keep-auto-update", action="store_true", help="Keep silent auto-update enabled")
 
+    sub.add_parser("check-update", help="Check latest Chinese localization release on GitHub")
+
     args = parser.parse_args(argv)
     if not hasattr(args, "keep_auto_update"):
         args.keep_auto_update = False
@@ -560,6 +621,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_status(args)
         if cmd == "build":
             return cmd_build(args)
+        if cmd == "check-update":
+            return cmd_check_update(args)
         return 2
     except Exception as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)

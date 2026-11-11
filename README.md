@@ -58,6 +58,9 @@ Antigravity 基于 VS Code + 独立 Electron 界面架构，要实现全界面�
 # 查看当前安装检测与汉化状态
 python src/localize.py status
 
+# 检查 GitHub 是否有新版汉化发布
+python src/localize.py check-update
+
 # 一键备份原版并注入深度汉化（默认禁用官方后台静默覆盖）
 python src/localize.py install
 
@@ -77,9 +80,28 @@ macOS / Linux 也可使用包装脚本 [`scripts/localize.sh`](scripts/localize.
 ```bash
 chmod +x scripts/localize.sh
 ./scripts/localize.sh status
+./scripts/localize.sh check-update
 ./scripts/localize.sh install
 ./scripts/localize.sh restore
 ```
+
+## 如何接收与更新新版汉化（新手图文指南）
+
+当 Antigravity 客户端升级到新版本，或本仓库同步发布了新版汉化补丁时，你可以通过以下方式第一时间收到提示并完成无损更新：
+
+![Antigravity 中文汉化更新界面位置与新手升级指南](docs/images/update-ui-guide.png)
+
+1. **在 Antigravity 客户端设置里直接查看（推荐）**：
+   - 打开 Antigravity **设置**（点击左下角齿轮图标或按快捷键 `Ctrl + ,`）。
+   - **左侧边栏底部（`提交反馈` 正上方）**：可直接看到汉化状态胶囊；点击它会自动定位到 **`通用` 设置页底部的「中文汉化与更新」卡片**（若你在其他设置页，也会自动切回 `通用`）。
+   - 默认每天最多向 GitHub Releases API 发送 1 次**严格只读**检查请求（不上传任何本机数据），你也可以在卡片开关中随时关闭。
+2. **在独立工具或终端里检查更新**：
+   - 双击 `Antigravity-zh-cn-win-x64.exe` 选择 **`[5] 检查 GitHub 最新汉化包更新`**；源码用户可在批处理菜单选 **`[6]`** 或运行 `python src/localize.py check-update`。
+   - 也欢迎在本仓库右上角点击 **Watch → Custom → 勾选 Releases** 订阅发版邮件通知。
+3. **下载后 3 步完成覆盖更新**：
+   - 点击卡片中的 **「前往 GitHub 下载」**（Windows 下载最新 `Antigravity-zh-cn-win-x64.exe`）。
+   - **先完全关闭 Antigravity 客户端**（Windows 下程序运行期间会锁定 `app.asar`，因此客户端内只能提醒与跳转下载，无法直接自替换）。
+   - 双击新版工具输入 **`1`** 回车，即可自动重新备份新版原包并覆盖完成汉化升级；随时可输入 **`3`** 无损还原官方原版。
 
 ### 离线构建模式（开发者 / 版本适配调试）
 
@@ -118,6 +140,7 @@ node tests/verify_e2e.js --dist-dir "/path/to/extracted/dist"
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   └── workflows/                        # GitHub Actions CI 测试与多平台 Release 打包
 ├── dict/master_merged_dict.json          # 主界面翻译词典（纯静态通用 UI 词条）
+├── docs/images/update-ui-guide.png       # 汉化更新入口与新手升级步骤图解
 ├── scripts/
 │   ├── Antigravity一键汉化工具.bat        # Windows 一键交互式汉化与还原脚本
 │   ├── build_standalone.py               # PyInstaller 单文件零依赖构建脚本

@@ -12,6 +12,8 @@
 
 
 
+  const AGY_ZH_META = {};
+
   const MERGED_DICT = {};
 
   for (const [k, v] of Object.entries(MERGED_DICT)) {
@@ -82,6 +84,9 @@
 
   function isBlockedNode(el) {
     if (!el || !el.closest) return false;
+
+    // 0. 隔离汉化工具自身挂载的状态胶囊与设置卡片，避免触发循环翻译
+    if (el.closest('[data-agy-zh-guard="1"]')) return true;
 
     // 1. 先强力隔离终端、代码块、等宽命令/路径 (.font-mono) 及可编辑区域（即使位于 dialog/Settings 内）
     if (el.closest('pre, code, kbd, samp, .font-mono, .terminal, .xterm, .xterm-screen')) return true;
@@ -811,10 +816,737 @@
     }
   }
 
+  // =========================================================================
+  // 位置 A：设置页边栏状态胶囊 + 「通用」页面汉化版本与更新检查卡片
+  // =========================================================================
+  const AGY_ZH_GUARD_ATTR = 'data-agy-zh-guard';
+  const AGY_ZH_PREF_KEY = 'agy_zh_auto_check_v1';
+  const AGY_ZH_CACHE_KEY = 'agy_zh_update_cache_v1';
+  const AGY_ZH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+  const uiState = {
+    checking: false,
+    simulatedUpdate: false,
+    copied: false,
+    meta: {
+      appVersion: (AGY_ZH_META && AGY_ZH_META.targetAppVersion) || '2.31.0',
+      patchVersion: (AGY_ZH_META && AGY_ZH_META.patchVersion) || '2.31.2',
+      targetAppVersion: (AGY_ZH_META && AGY_ZH_META.targetAppVersion) || '2.31.0',
+      versionMismatch: false,
+      repoUrl: (AGY_ZH_META && AGY_ZH_META.repoUrl) || 'https://github.com/ruxiayu/antigravity-zh-cn',
+      releasesUrl: (AGY_ZH_META && AGY_ZH_META.releasesUrl) || 'https://github.com/ruxiayu/antigravity-zh-cn/releases/latest',
+      isTestPreview: Boolean(AGY_ZH_META && AGY_ZH_META.isTestPreview === true)
+    },
+    remote: null
+  };
+
+  let mountTimer = null;
+  let bootMetaDone = false;
+  let autoCheckDone = false;
+
+  function readStorage(key, fallback) {
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage) {
+        const val = localStorage.getItem(key);
+        return val === null ? fallback : val;
+      }
+    } catch (_e) {}
+    return fallback;
+  }
+
+  function writeStorage(key, value) {
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage) {
+        localStorage.setItem(key, String(value));
+      }
+    } catch (_e) {}
+  }
+
+  function isAutoCheckEnabled() {
+    return readStorage(AGY_ZH_PREF_KEY, '1') !== '0';
+  }
+
+  function setAutoCheckEnabled(enabled) {
+    writeStorage(AGY_ZH_PREF_KEY, enabled ? '1' : '0');
+  }
+
+  function loadCachedUpdate() {
+    const raw = readStorage(AGY_ZH_CACHE_KEY, '');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  uiState.remote = loadCachedUpdate();
+
+  function getIpcRenderer() {
+    try {
+      if (typeof electron_1 !== 'undefined' && electron_1 && electron_1.ipcRenderer && typeof electron_1.ipcRenderer.invoke === 'function') {
+        return electron_1.ipcRenderer;
+      }
+    } catch (_e) {}
+    return null;
+  }
+
+  function invokeUpdateIpc(channel, arg) {
+    const ipc = getIpcRenderer();
+    if (!ipc) return Promise.resolve(null);
+    try {
+      return arg === undefined ? ipc.invoke(channel) : ipc.invoke(channel, arg);
+    } catch (_e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  function getEffectiveDisplayState() {
+    const meta = uiState.meta;
+    const remote = uiState.remote;
+    if (uiState.simulatedUpdate) {
+      return {
+        mode: 'update',
+        hasUpdate: true,
+        latestVersion: '2.32.0',
+        latestTag: 'v2.32.0',
+        htmlUrl: meta.releasesUrl,
+        summary: '模拟状态：已发布 v2.32.0 汉化适配更新，当前客户端运行 v' + meta.appVersion + '，补丁 v' + meta.patchVersion + '。',
+        error: ''
+      };
+    }
+    if (meta.versionMismatch) {
+      return {
+        mode: 'mismatch',
+        hasUpdate: true,
+        latestVersion: remote && remote.latestVersion ? remote.latestVersion : '',
+        latestTag: remote && remote.latestTag ? remote.latestTag : '',
+        htmlUrl: (remote && remote.htmlUrl) || meta.releasesUrl,
+        summary: '检测到客户端已升级至 v' + meta.appVersion + '（当前补丁适配 v' + meta.targetAppVersion + '），建议获取新版汉化。',
+        error: ''
+      };
+    }
+    if (remote && remote.ok && remote.hasUpdate) {
+      return {
+        mode: 'update',
+        hasUpdate: true,
+        latestVersion: remote.latestVersion,
+        latestTag: remote.latestTag,
+        htmlUrl: remote.htmlUrl || meta.releasesUrl,
+        summary: '发现 GitHub 新版汉化 ' + remote.latestTag + '（当前补丁 v' + meta.patchVersion + '）。',
+        error: ''
+      };
+    }
+    if (remote && remote.ok) {
+      return {
+        mode: 'latest',
+        hasUpdate: false,
+        latestVersion: remote.latestVersion,
+        latestTag: remote.latestTag,
+        htmlUrl: remote.htmlUrl || meta.releasesUrl,
+        summary: '当前已是最新汉化版本（补丁 v' + meta.patchVersion + ' · 线上 ' + remote.latestTag + ' · ' + exactMap.size + ' 条词库）。',
+        error: ''
+      };
+    }
+    return {
+      mode: remote && remote.error ? 'error' : 'idle',
+      hasUpdate: false,
+      latestVersion: '',
+      latestTag: '',
+      htmlUrl: meta.releasesUrl,
+      summary: remote && remote.error
+        ? ('暂未获取到线上版本（' + remote.error + '），本地补丁 v' + meta.patchVersion + ' 正常运行中。')
+        : ('本地补丁 v' + meta.patchVersion + ' · 已适配客户端 v' + meta.appVersion + '（' + exactMap.size + ' 条词库）。'),
+      error: remote && remote.error ? remote.error : ''
+    };
+  }
+
+  function detectDarkTheme(anchor) {
+    try {
+      if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+        let cur = anchor || document.body || document.documentElement;
+        while (cur && cur.nodeType === 1) {
+          const bg = window.getComputedStyle(cur).backgroundColor;
+          const m = /rgba?\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)(?:\s*,\s*([0-9.]+))?\s*\)/i.exec(bg || '');
+          if (m) {
+            const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+            if (alpha > 0.15) {
+              const lum = 0.299 * Number(m[1]) + 0.587 * Number(m[2]) + 0.114 * Number(m[3]);
+              return lum < 128;
+            }
+          }
+          cur = cur.parentElement;
+        }
+      }
+      if (document.documentElement && document.documentElement.classList && document.documentElement.classList.contains('dark')) {
+        return true;
+      }
+      if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+    } catch (_e) {}
+    return false;
+  }
+
+  function getPalette(dark) {
+    if (dark) {
+      return {
+        text: '#F4F4F5',
+        muted: 'rgba(244, 244, 245, 0.68)',
+        cardBg: 'rgba(255, 255, 255, 0.04)',
+        border: 'rgba(255, 255, 255, 0.12)',
+        divider: 'rgba(255, 255, 255, 0.09)',
+        btnBg: 'rgba(255, 255, 255, 0.07)',
+        btnBorder: 'rgba(255, 255, 255, 0.16)',
+        accent: '#60A5FA',
+        accentBg: 'rgba(96, 165, 250, 0.14)',
+        accentBorder: 'rgba(96, 165, 250, 0.36)',
+        primaryBtnBg: '#2563EB',
+        primaryBtnText: '#FFFFFF',
+        okDot: '#22C55E',
+        warnDot: '#F59E0B',
+        warnBg: 'rgba(245, 158, 11, 0.12)',
+        warnBorder: 'rgba(245, 158, 11, 0.36)',
+        idleDot: '#9CA3AF',
+        popoverBg: '#202124',
+        switchOffBg: 'rgba(255, 255, 255, 0.18)'
+      };
+    }
+    return {
+      text: '#0A0A0C',
+      muted: 'rgba(10, 10, 12, 0.62)',
+      cardBg: 'rgba(10, 10, 12, 0.02)',
+      border: 'rgba(10, 10, 12, 0.10)',
+      divider: 'rgba(10, 10, 12, 0.08)',
+      btnBg: '#FFFFFF',
+      btnBorder: 'rgba(10, 10, 12, 0.14)',
+      accent: '#2F75C3',
+      accentBg: 'rgba(47, 117, 195, 0.09)',
+      accentBorder: 'rgba(47, 117, 195, 0.34)',
+      primaryBtnBg: '#2F75C3',
+      primaryBtnText: '#FFFFFF',
+      okDot: '#16A34A',
+      warnDot: '#D97706',
+      warnBg: 'rgba(217, 119, 6, 0.09)',
+      warnBorder: 'rgba(217, 119, 6, 0.34)',
+      idleDot: '#71717A',
+      popoverBg: '#FFFFFF',
+      switchOffBg: 'rgba(10, 10, 12, 0.16)'
+    };
+  }
+
+  function findSettingsSidebarAnchor() {
+    if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function' || typeof document.createElement !== 'function') {
+      return null;
+    }
+    const navTokens = ['通用', '应用设置', '外观', '快捷键', '驱动模型', 'General', 'App Settings', 'Appearance', 'Shortcuts'];
+    const candidates = document.querySelectorAll('button, a, div, span, li');
+    for (let i = 0; i < candidates.length; i++) {
+      const el = candidates[i];
+      if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
+      const txt = (el.textContent || '').trim();
+      if (txt !== '提交反馈' && txt !== 'Give Feedback') continue;
+      if (el.children && el.children.length > 2) continue;
+
+      let sidebarRoot = null;
+      let cur = el.parentElement;
+      for (let step = 0; step < 8 && cur && cur !== document.body; step++) {
+        const allText = cur.textContent || '';
+        let hits = 0;
+        for (let k = 0; k < navTokens.length; k++) {
+          if (allText.indexOf(navTokens[k]) !== -1) hits++;
+        }
+        if (hits >= 3) {
+          sidebarRoot = cur;
+          break;
+        }
+        cur = cur.parentElement;
+      }
+      if (!sidebarRoot) continue;
+
+      let feedbackRow = (el.closest && el.closest('button, a, [role="button"]')) || el;
+      while (feedbackRow.parentElement && feedbackRow.parentElement !== sidebarRoot && feedbackRow.parentElement.children && feedbackRow.parentElement.children.length === 1) {
+        feedbackRow = feedbackRow.parentElement;
+      }
+      let dialogRoot = sidebarRoot.parentElement || document.body;
+      const sideTextLen = (sidebarRoot.textContent || '').length;
+      for (let up = 0; up < 4 && dialogRoot && dialogRoot.parentElement && dialogRoot.parentElement !== document.body; up++) {
+        if ((dialogRoot.textContent || '').length > sideTextLen + 40) {
+          break;
+        }
+        dialogRoot = dialogRoot.parentElement;
+      }
+      return { sidebarRoot, feedbackRow, dialogRoot };
+    }
+    return null;
+  }
+
+  function findGeneralSectionsAnchor(dialogRoot, sidebarRoot) {
+    if (!dialogRoot || typeof dialogRoot.querySelectorAll !== 'function') return null;
+    const nodes = dialogRoot.querySelectorAll('h1, h2, h3, h4, div, span, p');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
+      if (sidebarRoot && typeof sidebarRoot.contains === 'function' && sidebarRoot.contains(el)) continue;
+      const txt = (el.textContent || '').trim();
+      if (txt !== '全局权限' && txt !== 'Global Permissions') continue;
+
+      let sec = el;
+      for (let step = 0; step < 6 && sec && sec.parentElement && sec.parentElement !== dialogRoot; step++) {
+        const pTxt = sec.parentElement.textContent || '';
+        if (pTxt.indexOf('智能体行为') !== -1 || pTxt.indexOf('Agent Behavior') !== -1 || pTxt.indexOf('执行') !== -1 || pTxt.indexOf('Execution') !== -1) {
+          return { sectionsContainer: sec.parentElement, permSection: sec };
+        }
+        sec = sec.parentElement;
+      }
+    }
+    return null;
+  }
+
+  function clickGeneralSidebarTab(sidebarRoot) {
+    if (!sidebarRoot || typeof sidebarRoot.querySelectorAll !== 'function') return false;
+    const items = sidebarRoot.querySelectorAll('button, a, [role="button"], div, span');
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.closest && it.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]')) continue;
+      const txt = (it.textContent || '').trim();
+      if (txt === '通用' || txt === 'General') {
+        const clickable = (it.closest && it.closest('button, a, [role="button"]')) || it;
+        if (typeof clickable.click === 'function') {
+          clickable.click();
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function closeFloatingPopover() {
+    const pop = document.getElementById('agy-zh-floating-popover');
+    if (pop && pop.parentNode) pop.parentNode.removeChild(pop);
+  }
+
+  function triggerManualUpdateCheck() {
+    if (uiState.checking) return;
+    uiState.checking = true;
+    renderPositionA(findSettingsSidebarAnchor());
+    invokeUpdateIpc('zh-localization:check-update').then(function(res) {
+      uiState.checking = false;
+      if (res && typeof res === 'object') {
+        uiState.meta = {
+          appVersion: res.appVersion || uiState.meta.appVersion,
+          patchVersion: res.patchVersion || uiState.meta.patchVersion,
+          targetAppVersion: res.targetAppVersion || uiState.meta.targetAppVersion,
+          versionMismatch: Boolean(res.versionMismatch),
+          repoUrl: uiState.meta.repoUrl,
+          releasesUrl: uiState.meta.releasesUrl,
+          isTestPreview: uiState.meta.isTestPreview
+        };
+        uiState.remote = res;
+        writeStorage(AGY_ZH_CACHE_KEY, JSON.stringify(res));
+      } else {
+        uiState.remote = {
+          ok: false,
+          error: '仅离线/预览环境可用 IPC 检查',
+          checkedAt: Date.now()
+        };
+      }
+      renderPositionA(findSettingsSidebarAnchor());
+    });
+  }
+
+  function makeActionBtn(label, opts) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+    btn.textContent = label;
+    btn.style.cssText = [
+      'font-size: 12px',
+      'line-height: 1.2',
+      'padding: 5px 10px',
+      'border-radius: 7px',
+      'cursor: pointer',
+      'font-weight: 500',
+      'white-space: nowrap',
+      'border: 1px solid ' + (opts.borderColor || 'transparent'),
+      'background: ' + (opts.bg || 'transparent'),
+      'color: ' + (opts.color || 'inherit')
+    ].join(';');
+    if (opts.onClick) btn.addEventListener('click', opts.onClick);
+    return btn;
+  }
+
+  function buildCardRows(pal, ds) {
+    const meta = uiState.meta;
+    const card = document.createElement('div');
+    card.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+    card.style.cssText = [
+      'border: 1px solid ' + (ds.hasUpdate ? (ds.mode === 'mismatch' ? pal.warnBorder : pal.accentBorder) : pal.border),
+      'border-radius: 12px',
+      'background: ' + (ds.hasUpdate ? (ds.mode === 'mismatch' ? pal.warnBg : pal.accentBg) : pal.cardBg),
+      'overflow: hidden'
+    ].join(';');
+
+    // 第1行：版本状态与更新操作
+    const row1 = document.createElement('div');
+    row1.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;flex-wrap:wrap;';
+
+    const left1 = document.createElement('div');
+    left1.style.cssText = 'min-width:200px;flex:1;';
+
+    const titleLine = document.createElement('div');
+    titleLine.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;';
+    const titleText = document.createElement('span');
+    titleText.textContent = 'Antigravity 深度中文汉化';
+    titleText.style.cssText = 'font-size:13px;font-weight:600;color:' + pal.text + ';';
+    titleLine.appendChild(titleText);
+
+    const badge = document.createElement('span');
+    badge.textContent = uiState.checking
+      ? '检查中...'
+      : (ds.mode === 'update' ? ('有新版 ' + (ds.latestTag || '')) : (ds.mode === 'mismatch' ? '客户端已升级' : (ds.mode === 'latest' ? '已是最新' : ('补丁 v' + meta.patchVersion))));
+    badge.style.cssText = [
+      'font-size:11px',
+      'font-weight:500',
+      'padding:2px 7px',
+      'border-radius:999px',
+      'color:' + (ds.mode === 'mismatch' ? pal.warnDot : (ds.mode === 'update' ? pal.accent : pal.okDot)),
+      'background:' + (ds.mode === 'mismatch' ? pal.warnBg : (ds.mode === 'update' ? pal.accentBg : pal.btnBg)),
+      'border:1px solid ' + pal.border
+    ].join(';');
+    titleLine.appendChild(badge);
+    left1.appendChild(titleLine);
+
+    const desc1 = document.createElement('div');
+    desc1.textContent = ds.summary;
+    desc1.style.cssText = 'font-size:12px;margin-top:3px;color:' + pal.muted + ';';
+    left1.appendChild(desc1);
+    row1.appendChild(left1);
+
+    const actions1 = document.createElement('div');
+    actions1.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+    actions1.appendChild(makeActionBtn(uiState.checking ? '检查中...' : '检查更新', {
+      bg: pal.btnBg,
+      borderColor: pal.btnBorder,
+      color: pal.text,
+      onClick: triggerManualUpdateCheck
+    }));
+
+    if (ds.hasUpdate) {
+      actions1.appendChild(makeActionBtn('前往 GitHub 下载', {
+        bg: pal.primaryBtnBg,
+        borderColor: pal.primaryBtnBg,
+        color: pal.primaryBtnText,
+        onClick: function() {
+          const url = ds.htmlUrl || meta.releasesUrl;
+          invokeUpdateIpc('zh-localization:open-release', url).then(function(res) {
+            if (res === null && typeof window !== 'undefined' && typeof window.open === 'function') {
+              window.open(url, '_blank', 'noopener,noreferrer');
+            }
+          });
+        }
+      }));
+      actions1.appendChild(makeActionBtn(uiState.copied ? '已复制 ✓' : '复制更新命令', {
+        bg: pal.btnBg,
+        borderColor: pal.btnBorder,
+        color: pal.text,
+        onClick: function() {
+          const cmd = 'Antigravity-zh-cn-win-x64.exe install';
+          try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(cmd);
+            }
+          } catch (_e) {}
+          uiState.copied = true;
+          renderPositionA(findSettingsSidebarAnchor());
+          setTimeout(function() {
+            uiState.copied = false;
+            renderPositionA(findSettingsSidebarAnchor());
+          }, 1800);
+        }
+      }));
+    }
+    row1.appendChild(actions1);
+    card.appendChild(row1);
+
+    // 第2行：每日只读自动检查开关
+    const row2 = document.createElement('div');
+    row2.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid ' + pal.divider + ';';
+    const left2 = document.createElement('div');
+    const lbl2 = document.createElement('div');
+    lbl2.textContent = '每日启动时自动检查 GitHub 汉化更新';
+    lbl2.style.cssText = 'font-size:13px;font-weight:500;color:' + pal.text + ';';
+    const sub2 = document.createElement('div');
+    sub2.textContent = '24 小时最多发一次只读请求获取 Release 版本号，不上传任何本机数据。';
+    sub2.style.cssText = 'font-size:12px;margin-top:2px;color:' + pal.muted + ';';
+    left2.appendChild(lbl2);
+    left2.appendChild(sub2);
+    row2.appendChild(left2);
+
+    const enabled = isAutoCheckEnabled();
+    const toggleBtn = makeActionBtn(enabled ? '已开启' : '已关闭', {
+      bg: enabled ? pal.primaryBtnBg : pal.btnBg,
+      borderColor: enabled ? pal.primaryBtnBg : pal.btnBorder,
+      color: enabled ? pal.primaryBtnText : pal.muted,
+      onClick: function() {
+        setAutoCheckEnabled(!enabled);
+        renderPositionA(findSettingsSidebarAnchor());
+      }
+    });
+    row2.appendChild(toggleBtn);
+    card.appendChild(row2);
+
+    // 第3行：测试版本地预览控制（仅预览态展示，正式发布前可一键关闭）
+    if (meta.isTestPreview) {
+      const row3 = document.createElement('div');
+      row3.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;border-top:1px solid ' + pal.divider + ';';
+      const hint3 = document.createElement('div');
+      hint3.textContent = '测试预览专用：点击右侧按钮可就地模拟“发现新版 v2.32.0”提醒态（正式更新需关闭软件后运行更新器）。';
+      hint3.style.cssText = 'font-size:12px;color:' + pal.muted + ';';
+      row3.appendChild(hint3);
+      row3.appendChild(makeActionBtn(uiState.simulatedUpdate ? '恢复真实状态' : '模拟新版提醒', {
+        bg: pal.btnBg,
+        borderColor: pal.btnBorder,
+        color: pal.text,
+        onClick: function() {
+          uiState.simulatedUpdate = !uiState.simulatedUpdate;
+          renderPositionA(findSettingsSidebarAnchor());
+        }
+      }));
+      card.appendChild(row3);
+    }
+
+    return card;
+  }
+
+  function showFloatingFallbackPopover(pillEl, pal, ds) {
+    closeFloatingPopover();
+    const pop = document.createElement('div');
+    pop.id = 'agy-zh-floating-popover';
+    pop.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+    pop.style.cssText = [
+      'position:fixed',
+      'left:24px',
+      'bottom:64px',
+      'width:440px',
+      'max-width:calc(100vw - 48px)',
+      'z-index:2147483000',
+      'background:' + pal.popoverBg,
+      'color:' + pal.text,
+      'border:1px solid ' + pal.border,
+      'border-radius:12px',
+      'padding:12px',
+      'box-shadow:0 10px 30px rgba(0,0,0,0.22)'
+    ].join(';');
+
+    const head = document.createElement('div');
+    head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+    const title = document.createElement('span');
+    title.textContent = '中文汉化与更新';
+    title.style.cssText = 'font-size:13px;font-weight:600;';
+    head.appendChild(title);
+    head.appendChild(makeActionBtn('关闭', {
+      bg: pal.btnBg,
+      borderColor: pal.btnBorder,
+      color: pal.text,
+      onClick: closeFloatingPopover
+    }));
+    pop.appendChild(head);
+    pop.appendChild(buildCardRows(pal, ds));
+    (document.body || document.documentElement).appendChild(pop);
+  }
+
+  function renderPositionA(anchors) {
+    if (!anchors || typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+    const dark = detectDarkTheme(anchors.sidebarRoot);
+    const pal = getPalette(dark);
+    const ds = getEffectiveDisplayState();
+    const sig = [
+      uiState.checking,
+      uiState.simulatedUpdate,
+      uiState.copied,
+      isAutoCheckEnabled(),
+      ds.mode,
+      ds.latestTag,
+      ds.summary,
+      dark
+    ].join('|');
+
+    // 1. 左侧边栏「提交反馈」上方状态胶囊
+    let pill = document.getElementById('agy-zh-sidebar-pill');
+    const pillFresh = Boolean(pill && anchors.sidebarRoot.contains(pill) && pill.getAttribute('data-agy-zh-sig') === sig);
+    if (!pill || !anchors.sidebarRoot.contains(pill)) {
+      if (pill && pill.parentNode) pill.parentNode.removeChild(pill);
+      pill = document.createElement('button');
+      pill.id = 'agy-zh-sidebar-pill';
+      pill.type = 'button';
+      pill.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+      if (anchors.feedbackRow && anchors.feedbackRow.parentNode) {
+        anchors.feedbackRow.parentNode.insertBefore(pill, anchors.feedbackRow);
+      }
+      pill.addEventListener('click', function() {
+        const curAnchors = findSettingsSidebarAnchor();
+        const existingCard = document.getElementById('agy-zh-settings-card');
+        if (existingCard) {
+          closeFloatingPopover();
+          try { existingCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
+          const oldOutline = existingCard.style.outline;
+          existingCard.style.outline = '2px solid ' + getPalette(detectDarkTheme(existingCard)).accent;
+          existingCard.style.borderRadius = '12px';
+          setTimeout(function() { existingCard.style.outline = oldOutline; }, 1200);
+          return;
+        }
+        if (curAnchors && clickGeneralSidebarTab(curAnchors.sidebarRoot)) {
+          setTimeout(function() {
+            const nextAnchors = findSettingsSidebarAnchor();
+            renderPositionA(nextAnchors);
+            const mountedCard = document.getElementById('agy-zh-settings-card');
+            if (mountedCard) {
+              closeFloatingPopover();
+              try { mountedCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
+            } else if (nextAnchors) {
+              showFloatingFallbackPopover(pill, getPalette(detectDarkTheme(nextAnchors.sidebarRoot)), getEffectiveDisplayState());
+            }
+          }, 120);
+        } else {
+          showFloatingFallbackPopover(pill, getPalette(detectDarkTheme(pill)), getEffectiveDisplayState());
+        }
+      });
+    }
+
+    if (!pillFresh) {
+      pill.setAttribute('data-agy-zh-sig', sig);
+      const dotColor = uiState.checking
+        ? pal.warnDot
+        : (ds.mode === 'update' ? pal.accent : (ds.mode === 'mismatch' ? pal.warnDot : (ds.mode === 'latest' ? pal.okDot : pal.idleDot)));
+      const pillBg = ds.mode === 'update' ? pal.accentBg : (ds.mode === 'mismatch' ? pal.warnBg : 'transparent');
+      const pillBorder = ds.mode === 'update' ? pal.accentBorder : (ds.mode === 'mismatch' ? pal.warnBorder : pal.border);
+      const pillTextColor = ds.mode === 'update' ? pal.accent : (ds.mode === 'mismatch' ? pal.warnDot : pal.text);
+
+      pill.style.cssText = [
+        'width:100%',
+        'display:flex',
+        'align-items:center',
+        'justify-content:space-between',
+        'gap:6px',
+        'padding:6px 10px',
+        'margin:0 0 6px 0',
+        'border-radius:8px',
+        'font-size:12px',
+        'line-height:1.3',
+        'cursor:pointer',
+        'box-sizing:border-box',
+        'text-align:left',
+        'border:1px solid ' + pillBorder,
+        'background:' + pillBg,
+        'color:' + pillTextColor
+      ].join(';');
+
+      while (pill.firstChild) pill.removeChild(pill.firstChild);
+      const pillLeft = document.createElement('span');
+      pillLeft.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;flex:1;';
+      const dot = document.createElement('span');
+      dot.style.cssText = 'width:7px;height:7px;border-radius:999px;flex-shrink:0;background:' + dotColor + ';';
+      const labelSpan = document.createElement('span');
+      labelSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;';
+      labelSpan.textContent = uiState.checking
+        ? '检查汉化更新中...'
+        : (ds.mode === 'update'
+          ? ('汉化有新版 ' + (ds.latestTag || ''))
+          : (ds.mode === 'mismatch'
+            ? '客户端已升级 · 需更新汉化'
+            : (ds.mode === 'latest' ? ('汉化 v' + uiState.meta.patchVersion + ' · 最新') : ('汉化 v' + uiState.meta.patchVersion))));
+      pillLeft.appendChild(dot);
+      pillLeft.appendChild(labelSpan);
+      const chev = document.createElement('span');
+      chev.textContent = '›';
+      chev.style.cssText = 'opacity:0.65;flex-shrink:0;';
+      pill.appendChild(pillLeft);
+      pill.appendChild(chev);
+    }
+
+    // 2. 右侧「通用」内容区汉化状态卡片
+    const genAnchor = findGeneralSectionsAnchor(anchors.dialogRoot, anchors.sidebarRoot);
+    if (genAnchor && genAnchor.sectionsContainer) {
+      let section = document.getElementById('agy-zh-settings-card');
+      const cardFresh = Boolean(section && section.parentNode === genAnchor.sectionsContainer && section.getAttribute('data-agy-zh-sig') === sig);
+      if (!cardFresh) {
+        if (!section) {
+          section = document.createElement('div');
+          section.id = 'agy-zh-settings-card';
+          section.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+        }
+        section.setAttribute('data-agy-zh-sig', sig);
+        section.style.cssText = 'margin-top:16px;';
+        if (section.parentNode !== genAnchor.sectionsContainer) {
+          genAnchor.sectionsContainer.appendChild(section);
+        }
+        while (section.firstChild) section.removeChild(section.firstChild);
+
+        const secHeading = document.createElement('div');
+        secHeading.textContent = '中文汉化与更新';
+        secHeading.style.cssText = 'font-size:14px;font-weight:600;color:' + pal.text + ';margin-bottom:2px;';
+        const secSub = document.createElement('div');
+        secSub.textContent = '查看当前中文补丁状态并手动或每日只读检查 GitHub Releases 更新。';
+        secSub.style.cssText = 'font-size:12px;color:' + pal.muted + ';margin-bottom:10px;';
+        section.appendChild(secHeading);
+        section.appendChild(secSub);
+        section.appendChild(buildCardRows(pal, ds));
+      }
+    }
+
+    // 若备用浮层正打开且签名有变则同步刷新
+    const pop = document.getElementById('agy-zh-floating-popover');
+    if (pop && pop.getAttribute('data-agy-zh-sig') !== sig) {
+      showFloatingFallbackPopover(pill, pal, ds);
+      const refreshedPop = document.getElementById('agy-zh-floating-popover');
+      if (refreshedPop) refreshedPop.setAttribute('data-agy-zh-sig', sig);
+    }
+  }
+
+  function schedulePositionAMount() {
+    if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+    if (mountTimer) return;
+    mountTimer = setTimeout(function() {
+      mountTimer = null;
+      const anchors = findSettingsSidebarAnchor();
+      if (anchors) {
+        renderPositionA(anchors);
+      }
+    }, 90);
+  }
+
+  function syncUpdateMetaAndAutoCheck() {
+    if (!bootMetaDone) {
+      bootMetaDone = true;
+      invokeUpdateIpc('zh-localization:get-meta').then(function(meta) {
+        if (meta && typeof meta === 'object') {
+          uiState.meta = Object.assign({}, uiState.meta, meta);
+          const anchors = findSettingsSidebarAnchor();
+          if (anchors) renderPositionA(anchors);
+        }
+      });
+    }
+    if (!autoCheckDone) {
+      autoCheckDone = true;
+      if (isAutoCheckEnabled()) {
+        const cached = uiState.remote;
+        const fresh = cached && cached.checkedAt && (Date.now() - Number(cached.checkedAt) < AGY_ZH_CACHE_TTL_MS);
+        if (!fresh && getIpcRenderer()) {
+          setTimeout(triggerManualUpdateCheck, 3200);
+        }
+      }
+    }
+  }
+
   const observer = new MutationObserver(function(mutations) {
+    let sawDomChange = false;
     for (let i = 0; i < mutations.length; i++) {
       const m = mutations[i];
+      if (m.target && m.target.closest && m.target.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]')) continue;
       if (m.type === 'childList') {
+        sawDomChange = true;
         for (let j = 0; j < m.addedNodes.length; j++) {
           translateNode(m.addedNodes[j]);
         }
@@ -830,6 +1562,7 @@
         }
       }
     }
+    if (sawDomChange) schedulePositionAMount();
   });
 
   const obsOpts = {
@@ -848,6 +1581,8 @@
         translateNode(root);
       } catch (e) {}
     }
+    schedulePositionAMount();
+    syncUpdateMetaAndAutoCheck();
   }
 
   if (typeof Element !== 'undefined' && Element.prototype && Element.prototype.attachShadow) {

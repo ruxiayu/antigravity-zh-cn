@@ -21,16 +21,18 @@ echo   [2] 注入深度汉化（保留官方自动更新）
 echo   [3] 恢复官方原版（从 app.asar.original.bak 无损还原）
 echo   [4] 查看当前 Antigravity 安装与汉化状态
 echo   [5] 运行本地汉化引擎自检测试 (Node E2E)
+echo   [6] 检查 GitHub 最新汉化包更新
 echo   [0] 退出
 echo.
 set "CHOICE="
-set /p "CHOICE=请输入选项编号 [0-5] 并按回车: " || goto :END
+set /p "CHOICE=请输入选项编号 [0-6] 并按回车: " || goto :END
 
 if "%CHOICE%"=="1" goto :ACTION_INSTALL_BLOCK
 if "%CHOICE%"=="2" goto :ACTION_INSTALL_KEEP
 if "%CHOICE%"=="3" goto :ACTION_RESTORE
 if "%CHOICE%"=="4" goto :ACTION_STATUS
 if "%CHOICE%"=="5" goto :ACTION_TEST
+if "%CHOICE%"=="6" goto :ACTION_CHECK_UPDATE
 if "%CHOICE%"=="0" goto :END
 echo.
 echo [提示] 无效输入 "%CHOICE%"，请重新选择。
@@ -171,6 +173,13 @@ if errorlevel 1 (
     echo.
     echo [通过] 所有自动化自检项均已通过。
 )
+echo.
+call :WAIT_KEY
+goto :MENU
+
+:ACTION_CHECK_UPDATE
+echo.
+%PY_CMD% "%ROOT_DIR%src\localize.py" check-update
 echo.
 call :WAIT_KEY
 goto :MENU

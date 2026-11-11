@@ -8,6 +8,9 @@ import re
 from pathlib import Path
 from typing import Callable
 
+PATCH_VERSION = "2.31.2"
+REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
+
 PRELOAD_MARKERS = (
     "// Antigravity Chinese Localization Engine",
     "// Antigravity v",
@@ -303,8 +306,27 @@ def apply_pairs(text: str, pairs: list[tuple[str, str]]) -> str:
     return text
 
 
-def build_preload_engine(engine_template: str, dictionary: dict[str, str]) -> str:
-    """Embed dictionary JSON cleanly into engine_preload.js."""
+def build_preload_engine(
+    engine_template: str,
+    dictionary: dict[str, str],
+    target_app_version: str = "2.31.0",
+    patch_version: str = PATCH_VERSION,
+) -> str:
+    """Embed dictionary JSON and metadata cleanly into engine_preload.js."""
+    meta_json = json.dumps(
+        {
+            "patchVersion": patch_version,
+            "targetAppVersion": target_app_version,
+            "repoUrl": "https://github.com/ruxiayu/antigravity-zh-cn",
+            "releasesUrl": "https://github.com/ruxiayu/antigravity-zh-cn/releases/latest",
+            "isTestPreview": False,
+        },
+        ensure_ascii=False,
+    )
+    meta_placeholder = "const AGY_ZH_META = {};"
+    if meta_placeholder in engine_template:
+        engine_template = engine_template.replace(meta_placeholder, f"const AGY_ZH_META = {meta_json};", 1)
+
     dict_json = json.dumps(dictionary, ensure_ascii=False)
     placeholder = "const MERGED_DICT = {};"
     if placeholder in engine_template:
@@ -461,8 +483,128 @@ def patch_updater(
     target.write_text(text, encoding="utf-8")
 
 
-def patch_ipc_handlers(dist_dir: Path) -> None:
-    """Patch dist/ipcHandlers.js context menus and native dialogs."""
+def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
+    """Build idempotent main-process IPC handler snippet for read-only update checks."""
+    return f"""    // --- AGY_ZH_UPDATE_IPC_START ---
+    const __agyZhRepoBase = {json.dumps(REPO_URL)};
+    const __agyZhApiUrl = 'https://api.github.com/repos/ruxiayu/antigravity-zh-cn/releases/latest';
+    const __agyZhPatchVer = {json.dumps(patch_version)};
+    const __agyZhTargetAppVer = {json.dumps(target_app_version)};
+    function __agyZhCompareVer(a, b) {{
+        const pa = String(a || '').replace(/^v/i, '').split(/[-+]/)[0].split('.').map(n => parseInt(n, 10) || 0);
+        const pb = String(b || '').replace(/^v/i, '').split(/[-+]/)[0].split('.').map(n => parseInt(n, 10) || 0);
+        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {{
+            const da = pa[i] || 0, db = pb[i] || 0;
+            if (da !== db) return da > db ? 1 : -1;
+        }}
+        return 0;
+    }}
+    function __agyZhFetchLatestRelease(timeoutMs = 4500) {{
+        return new Promise((resolve) => {{
+            let settled = false;
+            let req = null;
+            const done = (res) => {{
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(res);
+            }};
+            const timer = setTimeout(() => {{
+                try {{ if (req) req.abort(); }} catch {{}}
+                done({{ ok: false, error: '请求超时（GitHub API 响应较慢）' }});
+            }}, timeoutMs);
+            try {{
+                req = electron_1.net.request({{ method: 'GET', url: __agyZhApiUrl }});
+                req.setHeader('User-Agent', 'antigravity-zh-cn/' + __agyZhPatchVer);
+                req.setHeader('Accept', 'application/vnd.github+json');
+                let raw = '';
+                req.on('response', (resp) => {{
+                    if (resp.statusCode && resp.statusCode >= 400) {{
+                        done({{ ok: false, error: 'GitHub API HTTP ' + resp.statusCode }});
+                        return;
+                    }}
+                    resp.on('data', (chunk) => {{
+                        raw += chunk.toString('utf8');
+                        if (raw.length > 262144) {{
+                            try {{ if (req) req.abort(); }} catch {{}}
+                            done({{ ok: false, error: '响应体积超出限制' }});
+                        }}
+                    }});
+                    resp.on('end', () => {{
+                        try {{
+                            const data = JSON.parse(raw);
+                            const latestTag = String(data.tag_name || '');
+                            const latestVersion = latestTag.replace(/^v/i, '');
+                            if (!latestVersion) {{
+                                done({{ ok: false, error: '未解析到发布版本号' }});
+                                return;
+                            }}
+                            const body = String(data.body || '').replace(/\\r\\n/g, '\\n').trim();
+                            done({{
+                                ok: true,
+                                latestTag,
+                                latestVersion,
+                                htmlUrl: String(data.html_url || (__agyZhRepoBase + '/releases/latest')),
+                                publishedAt: String(data.published_at || ''),
+                                releaseTitle: String(data.name || latestTag),
+                                notesPreview: body.slice(0, 260),
+                                hasUpdate: __agyZhCompareVer(latestVersion, __agyZhPatchVer) > 0,
+                            }});
+                        }} catch (_err) {{
+                            done({{ ok: false, error: '响应 JSON 解析失败' }});
+                        }}
+                    }});
+                }});
+                req.on('error', (err) => done({{ ok: false, error: String((err && err.message) || err || '网络错误') }}));
+                req.end();
+            }} catch (err) {{
+                done({{ ok: false, error: String((err && err.message) || err || '请求异常') }});
+            }}
+        }});
+    }}
+    if (typeof electron_1.ipcMain?.handle === 'function') {{
+        try {{ electron_1.ipcMain.removeHandler('zh-localization:get-meta'); }} catch {{}}
+        try {{ electron_1.ipcMain.removeHandler('zh-localization:check-update'); }} catch {{}}
+        try {{ electron_1.ipcMain.removeHandler('zh-localization:open-release'); }} catch {{}}
+        electron_1.ipcMain.handle('zh-localization:get-meta', () => {{
+            const appVer = String(electron_1.app?.getVersion?.() || __agyZhTargetAppVer);
+            return {{
+                appVersion: appVer,
+                patchVersion: __agyZhPatchVer,
+                targetAppVersion: __agyZhTargetAppVer,
+                versionMismatch: __agyZhCompareVer(appVer, __agyZhTargetAppVer) !== 0,
+                repoUrl: __agyZhRepoBase,
+                releasesUrl: __agyZhRepoBase + '/releases/latest',
+            }};
+        }});
+        electron_1.ipcMain.handle('zh-localization:check-update', async () => {{
+            const appVer = String(electron_1.app?.getVersion?.() || __agyZhTargetAppVer);
+            const res = await __agyZhFetchLatestRelease(4500);
+            return Object.assign({{
+                appVersion: appVer,
+                patchVersion: __agyZhPatchVer,
+                targetAppVersion: __agyZhTargetAppVer,
+                versionMismatch: __agyZhCompareVer(appVer, __agyZhTargetAppVer) !== 0,
+                checkedAt: Date.now(),
+            }}, res);
+        }});
+        electron_1.ipcMain.handle('zh-localization:open-release', (_event, targetUrl) => {{
+            const url = typeof targetUrl === 'string' ? targetUrl.trim() : '';
+            const safeUrl = url.startsWith(__agyZhRepoBase) ? url : (__agyZhRepoBase + '/releases/latest');
+            return electron_1.shell.openExternal(safeUrl);
+        }});
+    }}
+    // --- AGY_ZH_UPDATE_IPC_END ---
+"""
+
+
+def patch_ipc_handlers(
+    dist_dir: Path,
+    target_app_version: str = "2.31.0",
+    patch_version: str = PATCH_VERSION,
+    warn: Callable[[str], None] = print,
+) -> None:
+    """Patch dist/ipcHandlers.js context menus, native dialogs, and update IPC."""
     target = dist_dir / "ipcHandlers.js"
     text = target.read_text(encoding="utf-8")
     if "translateContextMenuLabel" not in text:
@@ -480,6 +622,18 @@ def patch_ipc_handlers(dist_dir: Path) -> None:
             text,
             count=1,
         )
+
+    text = re.sub(
+        r"\r?\n[ \t]*// --- AGY_ZH_UPDATE_IPC_START ---[\s\S]*?// --- AGY_ZH_UPDATE_IPC_END ---\r?\n?",
+        "\n",
+        text,
+    )
+    reg_anchor = "(0, wcvIpcHandlers_1.registerWcvIpcHandlers)(undefined, undefined, storageManager);"
+    if reg_anchor in text:
+        ipc_block = _build_update_ipc_block(target_app_version=target_app_version, patch_version=patch_version)
+        text = text.replace(reg_anchor, ipc_block + "    " + reg_anchor, 1)
+    else:
+        warn("Notice: registerWcvIpcHandlers anchor did not match in dist/ipcHandlers.js")
 
     text = apply_pairs(text, REPLACEMENT_TABLES["ipcHandlers.js"])
     target.write_text(text, encoding="utf-8")
@@ -518,11 +672,23 @@ def apply_all_patches(
 ) -> list[str]:
     """Run all localization patches inside an extracted ASAR directory."""
     dist_dir = extracted_dir / "dist"
-    engine_code = build_preload_engine(engine_template, dictionary)
+    app_ver = "2.31.0"
+    pkg_path = extracted_dir / "package.json"
+    if pkg_path.exists():
+        try:
+            app_ver = str(json.loads(pkg_path.read_text(encoding="utf-8")).get("version", app_ver))
+        except Exception:
+            pass
+    engine_code = build_preload_engine(
+        engine_template,
+        dictionary,
+        target_app_version=app_ver,
+        patch_version=PATCH_VERSION,
+    )
     patch_preload(dist_dir, engine_code)
     patch_menu(dist_dir)
     patch_tray(dist_dir)
     patch_updater(dist_dir, block_auto_update=block_auto_update, warn=warn)
-    patch_ipc_handlers(dist_dir)
+    patch_ipc_handlers(dist_dir, target_app_version=app_ver, patch_version=PATCH_VERSION, warn=warn)
     touched = patch_table_modules(dist_dir)
     return ["preload.js", "menu.js", "tray.js", "updater.js", "ipcHandlers.js"] + touched

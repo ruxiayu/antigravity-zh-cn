@@ -43,6 +43,9 @@ Requirements: **Python 3.8+** (optional **Node.js 18+** for pre-pack JS syntax v
 # Inspect detected installation & localization status
 python src/localize.py status
 
+# Check GitHub for newer localization releases
+python src/localize.py check-update
+
 # Backup original ASAR and apply localization (disables silent auto-update overwrite by default)
 python src/localize.py install
 
@@ -57,6 +60,19 @@ python src/localize.py install --app-dir "/path/to/Antigravity"
 ```
 
 Windows source users can also double-click `scripts/Antigravity一键汉化工具.bat`; macOS/Linux users can run `scripts/localize.sh`.
+
+## How to Receive & Apply Localization Updates
+
+![Localization Update UI Location and Step-by-Step Guide](docs/images/update-ui-guide.png)
+
+1. **In-App Status & Update Check (Settings -> General)**:
+   - Open Antigravity **Settings** (`Ctrl + ,`). A compact localization status pill is mounted right above **`提交反馈` / `Give Feedback`** in the left sidebar.
+   - Click it (or scroll to the bottom of **General / 通用**) to open the **中文汉化与更新** card, where you can manually check for new releases or toggle the daily read-only GitHub Release check (offloadable with one click, sends zero local telemetry).
+2. **CLI / Standalone Tool Check**:
+   - Choose **`[5]`** in the standalone executable menu, **`[6]`** in `Antigravity一键汉化工具.bat`, or run `python src/localize.py check-update`.
+   - You can also click **Watch -> Custom -> Releases** on GitHub to receive email notifications on every new release.
+3. **Applying an Update (Important for Windows Users)**:
+   - Because Windows locks `resources/app.asar` while Antigravity is running, **close Antigravity completely first**, then run the updated executable/script with option **`1`** (`install`). Even if an official Antigravity update overwrote `app.asar` back to English, running `install` automatically refreshes `app.asar.original.bak` from the new version and re-applies localization.
 
 ## Offline Build & Verification
 

@@ -110,9 +110,17 @@ class MockElement extends MockNode {
       this.attrs[k] = String(v);
     }
     this.children = [];
+    this.style = {};
+    this._listeners = {};
     for (const ch of children) {
       this.appendChild(typeof ch === 'string' ? new MockText(ch) : ch);
     }
+  }
+  get id() {
+    return this.attrs.id || '';
+  }
+  set id(v) {
+    this.attrs.id = String(v);
   }
   get className() {
     return this.attrs.class || '';
@@ -133,15 +141,67 @@ class MockElement extends MockNode {
   get textContent() {
     return this.children.map((c) => c.textContent).join('');
   }
+  set textContent(val) {
+    this.children = [];
+    if (val !== undefined && val !== null && String(val) !== '') {
+      this.appendChild(new MockText(String(val)));
+    }
+  }
+  _relinkChildren() {
+    for (let i = 0; i < this.children.length; i++) {
+      const c = this.children[i];
+      c.parentElement = this;
+      c.parentNode = this;
+      c.previousSibling = i > 0 ? this.children[i - 1] : null;
+      c.nextSibling = i + 1 < this.children.length ? this.children[i + 1] : null;
+    }
+  }
   appendChild(child) {
-    child.parentElement = this;
-    child.parentNode = this;
-    const prev = this.children[this.children.length - 1] || null;
-    child.previousSibling = prev;
-    child.nextSibling = null;
-    if (prev) prev.nextSibling = child;
+    if (child.parentNode && typeof child.parentNode.removeChild === 'function') {
+      child.parentNode.removeChild(child);
+    }
     this.children.push(child);
+    this._relinkChildren();
     return child;
+  }
+  insertBefore(newNode, refNode) {
+    if (!refNode) return this.appendChild(newNode);
+    if (newNode.parentNode && typeof newNode.parentNode.removeChild === 'function') {
+      newNode.parentNode.removeChild(newNode);
+    }
+    const idx = this.children.indexOf(refNode);
+    if (idx === -1) return this.appendChild(newNode);
+    this.children.splice(idx, 0, newNode);
+    this._relinkChildren();
+    return newNode;
+  }
+  removeChild(child) {
+    const idx = this.children.indexOf(child);
+    if (idx !== -1) {
+      this.children.splice(idx, 1);
+      child.parentElement = null;
+      child.parentNode = null;
+      child.previousSibling = null;
+      child.nextSibling = null;
+      this._relinkChildren();
+    }
+    return child;
+  }
+  contains(node) {
+    let cur = node;
+    while (cur) {
+      if (cur === this) return true;
+      cur = cur.parentNode || cur.parentElement;
+    }
+    return false;
+  }
+  addEventListener(ev, fn) {
+    if (!this._listeners[ev]) this._listeners[ev] = [];
+    this._listeners[ev].push(fn);
+  }
+  click() {
+    const fns = this._listeners.click || [];
+    for (const fn of fns) fn({ target: this, preventDefault() {} });
   }
   hasAttribute(name) {
     return Object.prototype.hasOwnProperty.call(this.attrs, name);
@@ -172,6 +232,19 @@ class MockElement extends MockNode {
       }
     }
     return null;
+  }
+  querySelectorAll(selectorList) {
+    const out = [];
+    const walk = (node) => {
+      for (const ch of node.children) {
+        if (ch.nodeType === 1) {
+          if (ch.matchesSelectorList(selectorList)) out.push(ch);
+          walk(ch);
+        }
+      }
+    };
+    walk(this);
+    return out;
   }
 }
 
@@ -334,8 +407,42 @@ addCase('guardInlineCode', el('code', {}, ['agent']));
 addCase('guardShellCmd', el('span', { class: 'font-mono' }, ['gh auth login']));
 addCase('guardPlainDoc', el('div', {}, [el('a', { href: '/docs' }, ['documentation'])]));
 addCase('guardUnknownWord', el('p', {}, ['Unknown']));
+addCase('guardUiBlock', el('div', { 'data-agy-zh-guard': '1' }, [el('button', {}, ['Give Feedback'])]));
+
+// Realistic Settings dialog shell for Position A injection test
+const mockSettingsFeedback = el('button', {}, ['Give Feedback']);
+const mockSettingsSidebar = el('div', {}, [
+  el('div', {}, [
+    el('button', {}, ['General']),
+    el('button', {}, ['App Settings']),
+    el('button', {}, ['Appearance']),
+  ]),
+  el('div', {}, [
+    mockSettingsFeedback,
+    el('div', {}, ['Account']),
+  ]),
+]);
+const mockSectionsList = el('div', {}, [
+  el('div', {}, [el('h3', {}, ['Global Permissions'])]),
+  el('div', {}, [el('h3', {}, ['Agent Behavior'])]),
+  el('div', {}, [el('h3', {}, ['Execution'])]),
+]);
+addCase('settingsDialog', el('div', {}, [
+  mockSettingsSidebar,
+  el('div', {}, [mockSectionsList]),
+]));
 
 const timers = [];
+const mockStorage = new Map();
+const findById = (node, id) => {
+  if (!node || node.nodeType !== 1) return null;
+  if (node.id === id) return node;
+  for (const ch of node.children) {
+    const f = findById(ch, id);
+    if (f) return f;
+  }
+  return null;
+};
 const sandbox = {
   console,
   Map,
@@ -343,8 +450,17 @@ const sandbox = {
   Object,
   Array,
   String,
+  Number,
+  Boolean,
+  Promise,
+  JSON,
+  Date,
   RegExp,
   Element: function() {},
+  localStorage: {
+    getItem(k) { return mockStorage.has(String(k)) ? mockStorage.get(String(k)) : null; },
+    setItem(k, v) { mockStorage.set(String(k), String(v)); },
+  },
   MutationObserver: class MockMO {
     constructor(cb) {
       this.cb = cb;
@@ -359,6 +475,15 @@ const sandbox = {
     body,
     readyState: 'complete',
     addEventListener() {},
+    createElement(tag) {
+      return new MockElement(tag);
+    },
+    getElementById(id) {
+      return findById(rootEl, id);
+    },
+    querySelectorAll(sel) {
+      return rootEl.querySelectorAll(sel);
+    },
   },
   window: { addEventListener() {} },
   setTimeout(fn) {
@@ -369,7 +494,10 @@ const sandbox = {
 sandbox.Element.prototype = { attachShadow() { return rootEl; } };
 
 vm.runInNewContext(engineCode, sandbox);
-for (const fn of timers) fn();
+for (let step = 0; timers.length > 0 && step < 40; step++) {
+  const fn = timers.shift();
+  fn();
+}
 
 let assertCount = 0;
 const checkEq = (name, actual, expected) => {
@@ -491,6 +619,32 @@ checkEq('guardInlineCode', nodes.guardInlineCode.textContent, 'agent');
 checkEq('guardShellCmd', nodes.guardShellCmd.textContent, 'gh auth login');
 checkEq('guardPlainDoc', nodes.guardPlainDoc.textContent, 'documentation');
 checkEq('guardUnknownWord', nodes.guardUnknownWord.textContent, 'Unknown');
+checkEq('guardUiBlock', nodes.guardUiBlock.textContent, 'Give Feedback');
+
+// Position A Settings UI injection assertions
+const sidebarPill = findById(rootEl, 'agy-zh-sidebar-pill');
+const settingsCard = findById(rootEl, 'agy-zh-settings-card');
+assertCount++;
+assert(sidebarPill && mockSettingsSidebar.contains(sidebarPill), 'Position A sidebar pill missing from Settings sidebar');
+assertCount++;
+assert(sidebarPill.nextElementSibling === mockSettingsFeedback, 'Position A sidebar pill should sit right above 提交反馈');
+assertCount++;
+assert(settingsCard && mockSectionsList.contains(settingsCard), 'Position A settings card missing from General sections');
+assertCount++;
+assert(settingsCard.textContent.includes('中文汉化与更新') && settingsCard.textContent.includes('Antigravity 深度中文汉化'), 'Position A card content mismatch');
+const simBtn = settingsCard.querySelectorAll('button').find((b) => b.textContent.includes('模拟新版提醒'));
+assertCount++;
+assert(!simBtn, 'Production Position A card should not include preview-only simulation toggle');
+const autoToggleBtn = settingsCard.querySelectorAll('button').find((b) => b.textContent === '已开启' || b.textContent === '已关闭');
+assertCount++;
+assert(autoToggleBtn && autoToggleBtn.textContent === '已开启', 'Auto-check toggle should default to 已开启');
+autoToggleBtn.click();
+const autoToggleBtnAfter = settingsCard.querySelectorAll('button').find((b) => b.textContent === '已开启' || b.textContent === '已关闭');
+assertCount++;
+assert(autoToggleBtnAfter && autoToggleBtnAfter.textContent === '已关闭', 'Auto-check toggle should flip to 已关闭 on click');
+autoToggleBtnAfter.click();
+assertCount++;
+assert(sidebarPill.textContent.includes('汉化 v'), 'Sidebar pill should display localized patch version');
 
 // MutationObserver attribute test
 assert(capturedObserver && capturedObserverOpts.attributes === true, 'MutationObserver attributes watch missing!');
@@ -505,7 +659,7 @@ if (distDir) {
     'menu.js': ["'Connect to WSL': '连接到 WSL'", "'Reopen Locally': '在本地重新打开'", 'menuTranslationMap[submenuLabel]', 'translateMenu'],
     'tray.js': ['无运行中的 Agent', '打开 Antigravity', '连接到 WSL', '在本地重新打开'],
     'updater.js': ['autoInstallOnAppQuit = false;', 'autoDownload = false;', 'Starting download...', 'MenuUpdateStep["CheckForUpdates"] = "检查更新";', "message: '当前已是最新版本'"],
-    'ipcHandlers.js': ['translateContextMenuLabel', '删除会话', '无法打开文件夹', '文件夹位于 Windows 文件系统中', '选择下载文件夹', '打开工作区'],
+    'ipcHandlers.js': ['translateContextMenuLabel', '删除会话', '无法打开文件夹', '文件夹位于 Windows 文件系统中', '选择下载文件夹', '打开工作区', 'zh-localization:get-meta', 'zh-localization:check-update', 'zh-localization:open-release'],
     'webauthn.js': ["title: '选择通行密钥 (Passkey)'", '请选择用于继续操作的通行密钥账户：', "buttons: [...accountLabels, '取消']"],
     'cablev2.js': ['<title>通行密钥 (Passkeys)</title>', '正在连接至您的设备…'],
     'main.js': ["showErrorBox('未找到核心程序'", "title: '未找到 WSL 发行版'", "title: '确认退出'", "buttons: ['取消', '退出']"],

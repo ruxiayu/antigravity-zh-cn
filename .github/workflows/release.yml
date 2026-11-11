@@ -71,4 +71,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist_artifacts/*
+          body_path: .github/RELEASE_BODY.md
           generate_release_notes: true
