@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-> An open-source, non-destructive Simplified Chinese localization patcher for **Antigravity Desktop (Electron)**, featuring a **6,629-entry UI dictionary**, a **dynamic Shadow DOM & regex translation engine**, native main-process patching, automatic backup, and one-click lossless restore.
+> An open-source, non-destructive Simplified Chinese localization patcher for **Antigravity Desktop (Electron)**, featuring a **6,658-entry UI dictionary**, a **dynamic Shadow DOM & regex translation engine**, native main-process patching, automatic backup, and one-click lossless restore.
 
 ## Key Features
 

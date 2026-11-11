@@ -653,6 +653,67 @@ dynBtn.setAttribute('aria-label', 'Select model, current: Claude Opus 5.5 High')
 capturedObserver.cb([{ type: 'attributes', target: dynBtn, attributeName: 'aria-label' }]);
 checkEq('dynAriaAttr', dynBtn.getAttribute('aria-label'), '选择模型，当前：Claude Opus 5.5 高');
 
+// Voice mode tooltips, controls & split DOM warnings (childList + attribute mutations)
+const voiceStartBtn = el('button', { 'data-testid': 'voice-start-button', 'aria-label': 'Start Voice mode' });
+const voiceTip = el('div', { id: 'voice-start-tooltip', role: 'tooltip', class: 'compact-tooltip' }, ['Start Voice mode']);
+const voiceLiveTip = el('div', { role: 'tooltip', class: 'compact-tooltip' }, ['Start Live Chat']);
+const voiceMuteTip = el('div', { id: 'voice-mute-tooltip', role: 'tooltip' }, ['Mute mic (Alt+M)']);
+const voiceAgentMuteTip = el('div', { id: 'voice-call-agent-mute-tooltip', role: 'tooltip' }, ['Unmute Antigravity (Alt+A)']);
+const voiceSpeedTip = el('div', { id: 'voice-call-speed-tooltip', role: 'tooltip' }, ['Voice speed, 1.5x']);
+const voiceTimer = el('span', { role: 'timer', 'aria-label': 'Voice mode, 1:23' }, ['1:23']);
+const voiceWarn = el('div', { 'data-testid': 'voice-mic-warning' }, [
+  el('button', { 'data-testid': 'voice-mic-warning-switch', 'aria-label': 'No audio from Blue Yeti. Switch mic' }, [
+    el('span', {}, ['No audio from Blue Yeti']),
+    el('span', {}, ['Switch mic']),
+  ]),
+  el('button', { 'data-testid': 'voice-mic-warning-reconnect' }, ['Reconnect']),
+  el('button', { 'data-testid': 'voice-mic-warning-dismiss', 'aria-label': 'Dismiss microphone warning' }),
+]);
+const voiceSwitched = el('div', { 'data-testid': 'voice-mic-switched' }, ['Using Blue Yeti']);
+const voiceEndBtn = el('button', { 'data-testid': 'voice-call-end', 'aria-label': 'End Voice mode' }, [el('span', {}, ['End'])]);
+const nonVoiceEndKbd = el('span', {}, ['End']);
+const voiceMarker1 = el('span', { 'data-testid': 'voice-chat-marker' }, ['Started voice chat · 8:30 PM']);
+const voiceMarker2 = el('span', { 'data-testid': 'voice-chat-marker' }, ['Stopped voice chat · 2m 05s']);
+const voiceTranscriptBtn = el('button', { 'data-testid': 'voice-transcript-card', 'aria-label': 'Open Voice transcript, 2m 05s. Summarizing call' }, [
+  el('span', {}, ['Voice transcript']),
+  el('span', {}, ['Open']),
+  el('span', {}, ['Summarizing call…']),
+]);
+const voiceErrTip = el('span', { 'data-testid': 'voice-error-tip' }, [
+  el('span', {}, ['Your sign-in needs an update. ', el('button', {}, ['Sign in again']), ' to use Voice.']),
+  el('button', {}, ['Try again']),
+]);
+const voiceMicErrTip = el('span', { 'data-testid': 'voice-error-tip' }, [
+  el('span', {}, ['Microphone blocked. Allow in ', el('button', {}, ['Privacy Settings']), '.']),
+]);
+const voiceHost = el('div', {}, [
+  voiceStartBtn, voiceTip, voiceLiveTip, voiceMuteTip, voiceAgentMuteTip, voiceSpeedTip,
+  voiceTimer, voiceWarn, voiceSwitched, voiceEndBtn, nonVoiceEndKbd,
+  voiceMarker1, voiceMarker2, voiceTranscriptBtn, voiceErrTip, voiceMicErrTip,
+]);
+rootEl.appendChild(voiceHost);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [voiceHost] }]);
+checkEq('voiceStartAria', voiceStartBtn.getAttribute('aria-label'), '开启语音模式');
+checkEq('voiceStartTip', voiceTip.textContent, '开启语音模式');
+checkEq('voiceLiveTip', voiceLiveTip.textContent, '开始实时对话');
+checkEq('voiceMuteTip', voiceMuteTip.textContent, '静音麦克风 (Alt+M)');
+checkEq('voiceAgentMuteTip', voiceAgentMuteTip.textContent, '取消静音 Antigravity (Alt+A)');
+checkEq('voiceSpeedTip', voiceSpeedTip.textContent, '语速 1.5x');
+checkEq('voiceTimerAria', voiceTimer.getAttribute('aria-label'), '语音模式，1:23');
+checkEq('voiceWarnAria', voiceWarn.querySelector('[data-testid="voice-mic-warning-switch"]').getAttribute('aria-label'), '未检测到来自 Blue Yeti 的音频，切换麦克风');
+checkEq('voiceWarnText', voiceWarn.querySelector('[data-testid="voice-mic-warning-switch"]').children[0].textContent, '未检测到来自 Blue Yeti 的音频');
+checkEq('voiceWarnDismiss', voiceWarn.querySelector('[data-testid="voice-mic-warning-dismiss"]').getAttribute('aria-label'), '关闭麦克风警告');
+checkEq('voiceSwitched', voiceSwitched.textContent, '正在使用 Blue Yeti');
+checkEq('voiceEndBtn', voiceEndBtn.textContent, '结束');
+checkEq('nonVoiceEndUntouched', nonVoiceEndKbd.textContent, 'End');
+checkEq('voiceMarkerStart', voiceMarker1.textContent, '已开启语音对话 · 8:30 PM');
+checkEq('voiceMarkerStop', voiceMarker2.textContent, '已结束语音对话 · 2 分钟 05 秒');
+checkEq('voiceTranscriptAria', voiceTranscriptBtn.getAttribute('aria-label'), '打开语音转录，2m 05s。正在生成通话摘要');
+checkEq('voiceTranscriptOpen', voiceTranscriptBtn.children[1].textContent, '打开');
+checkEq('voiceErrSplit', voiceErrTip.children[0].textContent, '您的登录状态需要更新，请 重新登录 后再使用语音模式。');
+checkEq('voiceTryAgain', voiceErrTip.children[1].textContent, '重试');
+checkEq('voiceMicErrSplit', voiceMicErrTip.children[0].textContent, '麦克风权限已被拦截，请前往 隐私设置.');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const moduleAssertions = {

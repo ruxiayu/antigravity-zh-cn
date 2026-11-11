@@ -440,6 +440,58 @@
     if ((m = /^(.+?),\s*voice\s+(\d+)\s+of\s+(\d+)$/i.exec(normTrimmed))) {
       return replaceTrimmed(str, trimmed, m[1] + '，第 ' + m[2] + ' / ' + m[3] + ' 种语音');
     }
+    if ((m = /^(Mute|Unmute)\s+mic(?:\s*\(([^)]+)\))?$/i.exec(normTrimmed))) {
+      const micAct = m[1].toLowerCase() === 'mute' ? '静音麦克风' : '取消静音麦克风';
+      return replaceTrimmed(str, trimmed, micAct + (m[2] ? ' (' + m[2] + ')' : ''));
+    }
+    if ((m = /^(Mute|Unmute)\s+(Antigravity|Jetski)(?:\s*\(([^)]+)\))?$/i.exec(normTrimmed))) {
+      const agyAct = m[1].toLowerCase() === 'mute' ? '静音 ' : '取消静音 ';
+      return replaceTrimmed(str, trimmed, agyAct + m[2] + (m[3] ? ' (' + m[3] + ')' : ''));
+    }
+    if ((m = /^Voice speed,\s*([0-9.]+x)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '语速 ' + m[1]);
+    }
+    if ((m = /^(Live chat|Voice mode),\s*([0-9]+:[0-9]{2})$/i.exec(normTrimmed))) {
+      const labelCn = m[1].toLowerCase() === 'live chat' ? '实时对话' : '语音模式';
+      return replaceTrimmed(str, trimmed, labelCn + '，' + m[2]);
+    }
+    if ((m = /^No audio from\s+(.+?)\.\s*Switch mic$/i.exec(collapsed))) {
+      return replaceTrimmed(str, trimmed, '未检测到来自 ' + m[1] + ' 的音频，切换麦克风');
+    }
+    if ((m = /^No audio from\s+(.+?)\.\s*Switch microphone\.?$/i.exec(collapsed))) {
+      return replaceTrimmed(str, trimmed, '未检测到来自 ' + m[1] + ' 的音频，请切换麦克风。');
+    }
+    if ((m = /^No audio from\s+(.+)$/i.exec(collapsed))) {
+      return replaceTrimmed(str, trimmed, '未检测到来自 ' + m[1] + ' 的音频');
+    }
+    if (/^No mic audio detected\.\s*Switch mic$/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '未检测到麦克风声音，切换麦克风');
+    }
+    if (/^No mic audio detected\.\s*Switch microphone\.?$/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '未检测到麦克风声音，请切换麦克风。');
+    }
+    if ((m = /^Started voice chat\s*\u00b7\s*(.+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '已开启语音对话 · ' + m[1]);
+    }
+    if ((m = /^Stopped voice chat\s*\u00b7\s*(.+)$/i.exec(normTrimmed))) {
+      const durCn = formatEnDurationStr(m[1], true) || m[1];
+      return replaceTrimmed(str, trimmed, '已结束语音对话 · ' + durCn);
+    }
+    if ((m = /^Open\s+(Voice transcript|Live transcript),\s*(.+)$/i.exec(normTrimmed))) {
+      const trCn = m[1].toLowerCase() === 'live transcript' ? '实时转录' : '语音转录';
+      return replaceTrimmed(str, trimmed, '打开' + trCn + '，' + m[2].replace(/\.\s*Summarizing call$/i, '。正在生成通话摘要'));
+    }
+    if ((m = /^(Send Message|Queue Message)\s+(\u23ce|Enter)$/i.exec(normTrimmed))) {
+      const actCn = m[1].toLowerCase().startsWith('send') ? '发送消息 ' : '加入消息队列 ';
+      return replaceTrimmed(str, trimmed, actCn + m[2]);
+    }
+    if ((m = /^(Record Audio|Stop Recording)\s+((?:Ctrl|Cmd|Alt|Shift|\u2318|\u2325|\u21e7|\u2303)[^\s]*)$/i.exec(normTrimmed))) {
+      const recCn = m[1].toLowerCase().startsWith('record') ? '录制语音 ' : '停止录音 ';
+      return replaceTrimmed(str, trimmed, recCn + m[2]);
+    }
+    if ((m = /^Cancel\s*\(([^)]+)\)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '取消 (' + m[1] + ')');
+    }
     if ((m = /^(Enable|Disable)\s+(.+?)\s+tool for\s+(.+)$/i.exec(normTrimmed))) {
       return replaceTrimmed(str, trimmed, (m[1].toLowerCase() === 'enable' ? '启用 ' : '停用 ') + m[3] + ' 的 ' + m[2] + ' 工具');
     }
@@ -642,6 +694,36 @@
       }
       if (trimmed === 'later.' && (parentText.includes('You can change this in') || parentText.includes('您之后可以在'))) {
         node.nodeValue = replaceTrimmed(original, trimmed, '中修改。');
+        return true;
+      }
+      if (/^Using\s+(.+)$/i.test(trimmed) && el.closest('[data-testid="voice-mic-switched"]')) {
+        const devMatch = /^Using\s+(.+)$/i.exec(trimmed);
+        if (devMatch) {
+          const repl = /^system default microphone$/i.test(devMatch[1].trim())
+            ? '正在使用系统默认麦克风'
+            : '正在使用 ' + devMatch[1];
+          node.nodeValue = replaceTrimmed(original, trimmed, repl);
+          return true;
+        }
+      }
+      if (trimmed === 'End' && el.closest('[data-testid="voice-call-end"]')) {
+        node.nodeValue = replaceTrimmed(original, trimmed, '结束');
+        return true;
+      }
+      if (trimmed === 'Open' && el.closest('[data-testid="voice-transcript-card"]')) {
+        node.nodeValue = replaceTrimmed(original, trimmed, '打开');
+        return true;
+      }
+      if (trimmed === 'Your sign-in needs an update.' && (el.closest('[data-testid="voice-error-tip"]') || /to use Voice|Sign in again|重新登录/.test(parentText))) {
+        node.nodeValue = '您的登录状态需要更新，请 ';
+        return true;
+      }
+      if (trimmed === 'to use Voice.' && (el.closest('[data-testid="voice-error-tip"]') || /Sign in again|重新登录|登录状态需要更新/.test(parentText))) {
+        node.nodeValue = ' 后再使用语音模式。';
+        return true;
+      }
+      if (trimmed === 'Microphone blocked. Allow in' && (el.closest('[data-testid="voice-error-tip"]') || /Privacy Settings|System Settings|隐私设置|系统设置/.test(parentText))) {
+        node.nodeValue = '麦克风权限已被拦截，请前往 ';
         return true;
       }
       if (trimmed === "Remote Control isn't active on this instance. Enable it in") {
