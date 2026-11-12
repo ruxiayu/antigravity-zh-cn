@@ -8,12 +8,13 @@ import re
 from pathlib import Path
 from typing import Callable
 
-PATCH_VERSION = "2.31.3"
+PATCH_VERSION = "2.31.4"
 REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
 
 PRELOAD_MARKERS = (
     "// Antigravity Chinese Localization Engine",
     "// Antigravity v",
+    "// === Antigravity",
 )
 
 MENU_DICT_CODE = """
@@ -311,6 +312,7 @@ def build_preload_engine(
     dictionary: dict[str, str],
     target_app_version: str = "2.31.0",
     patch_version: str = PATCH_VERSION,
+    is_test_preview: bool = False,
 ) -> str:
     """Embed dictionary JSON and metadata cleanly into engine_preload.js."""
     meta_json = json.dumps(
@@ -319,7 +321,7 @@ def build_preload_engine(
             "targetAppVersion": target_app_version,
             "repoUrl": "https://github.com/ruxiayu/antigravity-zh-cn",
             "releasesUrl": "https://github.com/ruxiayu/antigravity-zh-cn/releases/latest",
-            "isTestPreview": False,
+            "isTestPreview": is_test_preview,
         },
         ensure_ascii=False,
     )
@@ -359,137 +361,345 @@ def patch_preload(dist_dir: Path, engine_code: str) -> None:
 
 
 def patch_menu(dist_dir: Path) -> None:
-    """Patch dist/menu.js including async WSL submenu translation."""
+    """Patch dist/menu.js adaptively across Antigravity versions (including async WSL submenu)."""
     target = dist_dir / "menu.js"
     text = target.read_text(encoding="utf-8")
+
+    dict_part = MENU_DICT_CODE.strip().split("function translateMenu")[0].strip()
     if "menuTranslationMap" not in text:
-        menu_target = "electron_1.Menu.setApplicationMenu(menu);"
-        menu_rep = 'if (typeof translateMenu === "function") { menu.items.forEach(translateMenu); } electron_1.Menu.setApplicationMenu(menu);'
-        text = text.replace(menu_target, menu_rep, 1) + "\n" + MENU_DICT_CODE
+        text = text.rstrip() + "\n" + MENU_DICT_CODE
     else:
-        dict_part = MENU_DICT_CODE.strip().split("function translateMenu")[0].strip()
-        text = re.sub(r"const\s+menuTranslationMap\s*=\s*\{[\s\S]*?\n\s*\};", dict_part, text)
+        text = re.sub(
+            r"\b(?:const|let|var)\s+menuTranslationMap\s*=\s*\{[\s\S]*?\n\s*\};?",
+            dict_part,
+            text,
+            count=1,
+        )
 
-    old_add_sub = "const submenuItem = appMenu.items.find((item) => item.label === submenuLabel);"
-    new_add_sub = 'const submenuItem = appMenu.items.find((item) => item.label === submenuLabel || (typeof menuTranslationMap !== "undefined" && item.label === menuTranslationMap[submenuLabel]));'
-    if old_add_sub in text:
-        text = text.replace(old_add_sub, new_add_sub, 1)
+    set_menu_re = re.compile(
+        r"([ \t]*)((?:[A-Za-z_$][\w$]*\.)?Menu\.setApplicationMenu\(\s*([A-Za-z_$][\w$]*)\s*\);)"
+    )
 
-    wsl_target = "    if (reopen) {\n        addItemToSubmenu(menu, 'File', 2, new electron_1.MenuItem(reopen));\n    }\n    electron_1.Menu.setApplicationMenu(menu);"
-    wsl_rep = '    if (reopen) {\n        addItemToSubmenu(menu, \'File\', 2, new electron_1.MenuItem(reopen));\n    }\n    if (typeof translateMenu === "function") { menu.items.forEach(translateMenu); }\n    electron_1.Menu.setApplicationMenu(menu);'
-    if wsl_target in text:
-        text = text.replace(wsl_target, wsl_rep, 1)
+    def _hook_set_menu(match: re.Match[str]) -> str:
+        indent, call_stmt, menu_var = match.groups()
+        preceding = text[max(0, match.start() - 180) : match.start()]
+        if "translateMenu" in preceding:
+            return match.group(0)
+        return (
+            f'{indent}if (typeof translateMenu === "function") {{ {menu_var}.items.forEach(translateMenu); }}\n'
+            f"{indent}{call_stmt}"
+        )
+
+    text = set_menu_re.sub(_hook_set_menu, text)
+
+    add_sub_re = re.compile(
+        r"const\s+submenuItem\s*=\s*([A-Za-z_$][\w$]*)\.items\.find\(\s*\(([A-Za-z_$][\w$]*)\)\s*=>\s*\2\.label\s*===\s*submenuLabel\s*\);"
+    )
+    text = add_sub_re.sub(
+        lambda m: (
+            f"const submenuItem = {m.group(1)}.items.find(({m.group(2)}) => "
+            f"{m.group(2)}.label === submenuLabel || "
+            f'(typeof menuTranslationMap !== "undefined" && {m.group(2)}.label === menuTranslationMap[submenuLabel]));'
+        ),
+        text,
+    )
 
     target.write_text(text, encoding="utf-8")
 
 
 def patch_tray(dist_dir: Path) -> None:
-    """Patch dist/tray.js menu actions and running agent status."""
+    """Patch dist/tray.js menu actions and running agent status adaptively & idempotently."""
     target = dist_dir / "tray.js"
     text = target.read_text(encoding="utf-8")
-    if "无运行中的 Agent" in text:
-        return
 
-    text = text.replace(
-        "function createTray(actions, onClick) {",
-        """function createTray(actions, onClick) {
-    const translations = {
-      'No agents running': '无运行中的 Agent',
-      'Open Antigravity': '打开 Antigravity',
-      'Quit': '退出',
-      'Connect to WSL': '连接到 WSL'
-    };
-    for (const item of actions) {
-      if (translations[item.label]) {
-        item.label = translations[item.label];
-      }
-    }""",
-        1,
-    )
-    text = text.replace(
-        "function insertTrayMenuItem(position, options) {",
-        """function insertTrayMenuItem(position, options) {
-    const translations = {
-      'Connect to WSL': '连接到 WSL',
-      'Reopen Locally': '在本地重新打开'
-    };
-    if (options && options.label && translations[options.label]) {
-      options.label = translations[options.label];
-    }""",
-        1,
-    )
-    text = text.replace(
-        """        if (countItem) {
-            countItem.label =
-                (count > 0 ? `${count}` : 'No') +
-                    ' agent' +
-                    (count === 1 ? '' : 's') +
-                    ' running';
-            tray.setContextMenu(contextMenu);
-        }""",
-        """        if (countItem) {
+    # Use block-scoped unique variables & dynamic parameter capture across versions
+    if "__agyZhCreateTrayMap" not in text:
+        create_re = re.compile(
+            r"(function\s+createTray\(\s*([A-Za-z_$][\w$]*)(?:\s*,[^)]*)?\)\s*\{)",
+            re.MULTILINE,
+        )
+        text = create_re.sub(
+            lambda m: (
+                f"{m.group(1)}\n"
+                "    {\n"
+                "      const __agyZhCreateTrayMap = {\n"
+                "        'No agents running': '无运行中的 Agent',\n"
+                "        'Open Antigravity': '打开 Antigravity',\n"
+                "        'Quit': '退出',\n"
+                "        'Connect to WSL': '连接到 WSL'\n"
+                "      };\n"
+                f"      for (const __agyItem of ({m.group(2)} || [])) {{\n"
+                "        if (__agyItem && __agyZhCreateTrayMap[__agyItem.label]) {\n"
+                "          __agyItem.label = __agyZhCreateTrayMap[__agyItem.label];\n"
+                "        }\n"
+                "      }\n"
+                "    }"
+            ),
+            text,
+            count=1,
+        )
+
+    if "__agyZhInsertTrayMap" not in text:
+        insert_re = re.compile(
+            r"(function\s+insertTrayMenuItem\(\s*[^,]+,\s*([A-Za-z_$][\w$]*)\s*\)\s*\{)",
+            re.MULTILINE,
+        )
+        text = insert_re.sub(
+            lambda m: (
+                f"{m.group(1)}\n"
+                "    {\n"
+                "      const __agyZhInsertTrayMap = {\n"
+                "        'Connect to WSL': '连接到 WSL',\n"
+                "        'Reopen Locally': '在本地重新打开'\n"
+                "      };\n"
+                f"      if ({m.group(2)} && {m.group(2)}.label && __agyZhInsertTrayMap[{m.group(2)}.label]) {{\n"
+                f"        {m.group(2)}.label = __agyZhInsertTrayMap[{m.group(2)}.label];\n"
+                "      }\n"
+                "    }"
+            ),
+            text,
+            count=1,
+        )
+
+    count_rep = """if (countItem) {
             countItem.label = count > 0 ? `${count} 个 Agent 运行中` : '无运行中的 Agent';
             tray.setContextMenu(contextMenu);
-        }""",
-        1,
+        }"""
+    count_pat_v228 = re.compile(
+        r"if\s*\(countItem\)\s*\{\s*countItem\.label\s*=\s*\(count\s*>\s*0\s*\?\s*`\$\{count\}`\s*:\s*'No'\)\s*\+\s*' agent'\s*\+\s*\(count\s*===\s*1\s*\?\s*''\s*:\s*'s'\)\s*\+\s*' running';\s*tray\.setContextMenu\(contextMenu\);\s*\}"
     )
+    count_pat_v231 = re.compile(
+        r"if\s*\(countItem\)\s*\{\s*countItem\.label\s*=\s*\(count\s*>\s*0\s*\?\s*`\$\{count\} running agents`\s*:\s*'No agents running'\);\s*tray\.setContextMenu\(contextMenu\);\s*\}"
+    )
+    count_pat_generic = re.compile(
+        r"if\s*\(\s*countItem\s*\)\s*\{\s*countItem\.label\s*=[\s\S]*?running[\s\S]*?tray\.setContextMenu\(contextMenu\);\s*\}"
+    )
+    if "个 Agent 运行中" not in text:
+        text, c1 = count_pat_v228.subn(count_rep, text, count=1)
+        if c1 == 0:
+            text, c2 = count_pat_v231.subn(count_rep, text, count=1)
+            if c2 == 0:
+                text = count_pat_generic.sub(count_rep, text, count=1)
+
     target.write_text(text, encoding="utf-8")
 
 
 def patch_updater(
     dist_dir: Path,
-    block_auto_update: bool = True,
+    block_auto_update: bool = False,
     warn: Callable[[str], None] = print,
 ) -> None:
-    """Patch dist/updater.js for manual download control & UI localization."""
+    """Patch dist/updater.js for reliable top-right updates & UI localization across versions."""
     target = dist_dir / "updater.js"
     text = target.read_text(encoding="utf-8")
 
-    if block_auto_update:
-        if "autoInstallOnAppQuit = false;" not in text:
-            text, c1 = re.subn(
-                r"electron_updater_1\.autoUpdater\.autoInstallOnAppQuit\s*=\s*electron_1\.app\.isPackaged;",
-                "electron_updater_1.autoUpdater.autoInstallOnAppQuit = false;",
-                text,
-            )
-            if c1 != 1:
-                warn("Notice: autoInstallOnAppQuit pattern did not match in dist/updater.js")
-        if "autoDownload = false;" not in text:
-            text, c2 = re.subn(
-                r"electron_updater_1\.autoUpdater\.autoDownload\s*=\s*true;",
-                "electron_updater_1.autoUpdater.autoDownload = false;",
-                text,
-            )
-            if c2 != 1:
-                warn("Notice: autoDownload pattern did not match in dist/updater.js")
-        if "Starting download..." not in text:
-            dl_regex = r"(case types_1\.UpdateState\.AvailableForDownload:[\s\S]*?case types_1\.UpdateState\.Downloading:[\s\S]*?return true;)"
-            dl_rep = """case types_1.UpdateState.AvailableForDownload:
-            console.log('[AutoUpdater] User clicked update button. Starting download...');
-            broadcastState({ type: types_1.UpdateState.Downloading });
-            electron_updater_1.autoUpdater.downloadUpdate().catch((err) => {
-                console.error('[AutoUpdater] Download failed:', err?.message || err);
-                broadcastState({ type: types_1.UpdateState.Idle });
-            });
-            return true;
-        case types_1.UpdateState.Downloading:
-            console.log('[AutoUpdater] Update already in progress.');
-            return true;"""
-            text, c3 = re.subn(dl_regex, dl_rep, text, count=1)
-            if c3 != 1:
-                warn("Notice: AvailableForDownload handler did not match in dist/updater.js")
+    elec_m = re.search(r"const\s+([A-Za-z_$][\w$]*)\s*=\s*require\(['\"]electron['\"]\);", text)
+    upd_m = re.search(r"const\s+([A-Za-z_$][\w$]*)\s*=\s*require\(['\"]electron-updater['\"]\);", text)
+    types_m = re.search(r"const\s+([A-Za-z_$][\w$]*)\s*=\s*require\(['\"]\.\/types['\"]\);", text)
+    elec_mod = elec_m.group(1) if elec_m else "electron_1"
+    upd_mod = upd_m.group(1) if upd_m else "electron_updater_1"
+    types_mod = types_m.group(1) if types_m else "types_1"
 
+    # 1. Helper state & toast channel (idempotent)
+    text = re.sub(
+        r"\r?\n?[ \t]*// --- AGY_ZH_UPDATER_HELPER_START ---[\s\S]*?// --- AGY_ZH_UPDATER_HELPER_END ---\r?\n?",
+        "\n",
+        text,
+    )
+    helper_block = (
+        "// --- AGY_ZH_UPDATER_HELPER_START ---\n"
+        "let __agyZhApplyOnDownload = false;\n"
+        "function __agyZhBroadcastDownloadStatus(phase, percent, detail) {\n"
+        "    try {\n"
+        f"        const wins = typeof {elec_mod} !== 'undefined' && {elec_mod}.BrowserWindow ? {elec_mod}.BrowserWindow.getAllWindows() : [];\n"
+        "        for (const w of wins) {\n"
+        "            try {\n"
+        "                if (w && !w.isDestroyed() && w.webContents && !w.webContents.isDestroyed()) {\n"
+        "                    w.webContents.send('zh-localization:official-update-status', {\n"
+        "                        phase: phase || '',\n"
+        "                        percent: Number(percent || 0),\n"
+        "                        detail: detail || ''\n"
+        "                    });\n"
+        "                }\n"
+        "            } catch (_e) {}\n"
+        "        }\n"
+        "    } catch (_e) {}\n"
+        "}\n"
+        "// --- AGY_ZH_UPDATER_HELPER_END ---\n"
+    )
+    if "function broadcastState(" in text:
+        text = text.replace("function broadcastState(", helper_block + "function broadcastState(", 1)
+    else:
+        text = helper_block + text
+
+    # 2. Configure autoDownload & autoInstallOnAppQuit idempotently in BOTH directions
+    desired_auto_install = "false" if block_auto_update else f"{elec_mod}.app.isPackaged"
+    desired_auto_download = "false" if block_auto_update else "true"
+
+    text, c1 = re.subn(
+        re.escape(upd_mod) + r"\.autoUpdater\.autoInstallOnAppQuit\s*=\s*[^;]+;",
+        f"{upd_mod}.autoUpdater.autoInstallOnAppQuit = {desired_auto_install};",
+        text,
+    )
+    if c1 == 0:
+        warn("Notice: autoInstallOnAppQuit pattern did not match in dist/updater.js")
+
+    text, c2 = re.subn(
+        re.escape(upd_mod) + r"\.autoUpdater\.autoDownload\s*=\s*(?:true|false)\s*;",
+        f"{upd_mod}.autoUpdater.autoDownload = {desired_auto_download};",
+        text,
+    )
+    if c2 == 0:
+        warn("Notice: autoDownload pattern did not match in dist/updater.js")
+
+    # 3. Do not falsely lock Help menu to "Downloading Update..." before download starts
+    avail_re = re.compile(
+        r"(on\(\s*['\"]update-available['\"][\s\S]{0,350}?)updateMenuState\(\s*MenuUpdateStep\.DownloadingUpdate\s*\)\s*;"
+    )
+    text = avail_re.sub(
+        lambda m: f"{m.group(1)}updateMenuState({upd_mod}.autoUpdater.autoDownload ? MenuUpdateStep.DownloadingUpdate : MenuUpdateStep.CheckForUpdates);",
+        text,
+        count=1,
+    )
+
+    # 4. Track & broadcast live download progress when user initiated apply
+    prog_block = (
+        "// --- AGY_ZH_DL_PROG_START ---\n"
+        f"    {upd_mod}.autoUpdater.on('download-progress', (progressObj) => {{\n"
+        f"        broadcastState({{ type: {types_mod}.UpdateState.Downloading }});\n"
+        "        updateMenuState(MenuUpdateStep.DownloadingUpdate);\n"
+        "        if (typeof __agyZhApplyOnDownload !== 'undefined' && __agyZhApplyOnDownload) {\n"
+        "            __agyZhBroadcastDownloadStatus('downloading', Math.round((progressObj && progressObj.percent) || 0), (getLastState() && getLastState().update && getLastState().update.version) || '');\n"
+        "        }\n"
+        "    });\n"
+        "    // --- AGY_ZH_DL_PROG_END ---"
+    )
+    if "// --- AGY_ZH_DL_PROG_START ---" in text:
+        text = re.sub(
+            r"// --- AGY_ZH_DL_PROG_START ---[\s\S]*?// --- AGY_ZH_DL_PROG_END ---",
+            prog_block,
+            text,
+            count=1,
+        )
+    else:
+        prog_orig_re = re.compile(
+            re.escape(upd_mod)
+            + r"\.autoUpdater\.on\(\s*'download-progress'\s*,\s*\(\)\s*=>\s*\{\s*broadcastState\(\s*\{\s*type:\s*"
+            + re.escape(types_mod)
+            + r"\.UpdateState\.Downloading\s*\}\s*\);\s*updateMenuState\(\s*MenuUpdateStep\.DownloadingUpdate\s*\);\s*\}\s*\);"
+        )
+        text = prog_orig_re.sub(prog_block, text, count=1)
+
+    # 5. Auto-launch installer after download completes if user already clicked top-right Update
+    text = re.sub(
+        r"\r?\n?[ \t]*// --- AGY_ZH_DL_DONE_START ---[\s\S]*?// --- AGY_ZH_DL_DONE_END ---",
+        "",
+        text,
+    )
+    done_anchor = "updateMenuState(MenuUpdateStep.RestartToUpdate);"
+    if done_anchor in text:
+        done_hook = (
+            done_anchor
+            + "\n        // --- AGY_ZH_DL_DONE_START ---\n"
+            "        if (typeof __agyZhApplyOnDownload !== 'undefined' && __agyZhApplyOnDownload) {\n"
+            "            __agyZhApplyOnDownload = false;\n"
+            "            __agyZhBroadcastDownloadStatus('ready', 100, (info && info.version) || '');\n"
+            f"            if ({elec_mod}.app.isPackaged) {{\n"
+            "                setTimeout(() => { quitAndInstall(); }, 250);\n"
+            "            }\n"
+            "        }\n"
+            "        // --- AGY_ZH_DL_DONE_END ---"
+        )
+        text = text.replace(done_anchor, done_hook, 1)
+
+    # 6. Reset apply-on-download state cleanly on updater error
+    text = re.sub(
+        r"\r?\n?[ \t]*// --- AGY_ZH_DL_ERR_START ---[\s\S]*?// --- AGY_ZH_DL_ERR_END ---",
+        "",
+        text,
+    )
+    err_re = re.compile(
+        r"(on\(\s*['\"]error['\"][\s\S]{0,250}?updateMenuState\(\s*MenuUpdateStep\.CheckForUpdates\s*\);)"
+    )
+    text = err_re.sub(
+        lambda m: (
+            m.group(1)
+            + "\n        // --- AGY_ZH_DL_ERR_START ---\n"
+            "        if (typeof __agyZhApplyOnDownload !== 'undefined' && __agyZhApplyOnDownload) {\n"
+            "            __agyZhApplyOnDownload = false;\n"
+            "            __agyZhBroadcastDownloadStatus('error', 0, String((err && err.message) || err || ''));\n"
+            "        }\n"
+            "        // --- AGY_ZH_DL_ERR_END ---"
+        ),
+        text,
+        count=1,
+    )
+
+    # 7. Guarantee top-right Update button click downloads + auto-installs in BOTH modes
+    apply_block = (
+        "// --- AGY_ZH_APPLY_HOST_START ---\n"
+        f"        case {types_mod}.UpdateState.AvailableForDownload:\n"
+        "            console.log('[AutoUpdater] User clicked update button. Starting download...');\n"
+        "            __agyZhApplyOnDownload = true;\n"
+        f"            broadcastState({{ type: {types_mod}.UpdateState.Downloading, update: state.update }});\n"
+        "            updateMenuState(MenuUpdateStep.DownloadingUpdate);\n"
+        "            __agyZhBroadcastDownloadStatus('downloading', 0, (state.update && state.update.version) || '');\n"
+        f"            {upd_mod}.autoUpdater.downloadUpdate().catch((err) => {{\n"
+        "                console.error('[AutoUpdater] Download failed:', err?.message || err);\n"
+        "                __agyZhApplyOnDownload = false;\n"
+        "                __agyZhBroadcastDownloadStatus('error', 0, String((err && err.message) || err || ''));\n"
+        f"                broadcastState({{ type: {types_mod}.UpdateState.Idle }});\n"
+        "                updateMenuState(MenuUpdateStep.CheckForUpdates);\n"
+        "            });\n"
+        "            return true;\n"
+        f"        case {types_mod}.UpdateState.Downloading:\n"
+        "            console.log('[AutoUpdater] Update already in progress; will apply automatically upon completion.');\n"
+        "            __agyZhApplyOnDownload = true;\n"
+        "            __agyZhBroadcastDownloadStatus('downloading', 0, (state.update && state.update.version) || '');\n"
+        "            return true;\n"
+        "        // --- AGY_ZH_APPLY_HOST_END ---"
+    )
+    if "// --- AGY_ZH_APPLY_HOST_START ---" in text:
+        text = re.sub(
+            r"// --- AGY_ZH_APPLY_HOST_START ---[\s\S]*?// --- AGY_ZH_APPLY_HOST_END ---",
+            apply_block,
+            text,
+            count=1,
+        )
+    else:
+        dl_regex = (
+            r"case "
+            + re.escape(types_mod)
+            + r"\.UpdateState\.AvailableForDownload:[\s\S]*?case "
+            + re.escape(types_mod)
+            + r"\.UpdateState\.Downloading:[\s\S]*?return true;"
+        )
+        text, c3 = re.subn(dl_regex, apply_block, text, count=1)
+        if c3 != 1:
+            warn("Notice: AvailableForDownload handler did not match in dist/updater.js")
+
+    text = text.replace("message: '当前已是最新版本，暂无可用更新',", "message: '当前已是最新版本',")
     text = apply_pairs(text, REPLACEMENT_TABLES["updater.js"])
     target.write_text(text, encoding="utf-8")
 
 
 def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
-    """Build idempotent main-process IPC handler snippet for read-only update checks."""
+    """Build idempotent main-process IPC handler snippet for in-app download, update & restart."""
     return f"""    // --- AGY_ZH_UPDATE_IPC_START ---
     const __agyZhRepoBase = {json.dumps(REPO_URL)};
     const __agyZhApiUrl = 'https://api.github.com/repos/ruxiayu/antigravity-zh-cn/releases/latest';
     const __agyZhPatchVer = {json.dumps(patch_version)};
     const __agyZhTargetAppVer = {json.dumps(target_app_version)};
+    let __agyZhDownloadState = {{
+        status: 'idle',
+        percent: 0,
+        receivedBytes: 0,
+        totalBytes: 0,
+        error: '',
+        stagedPath: '',
+        assetName: ''
+    }};
+
     function __agyZhCompareVer(a, b) {{
         const pa = String(a || '').replace(/^v/i, '').split(/[-+]/)[0].split('.').map(n => parseInt(n, 10) || 0);
         const pb = String(b || '').replace(/^v/i, '').split(/[-+]/)[0].split('.').map(n => parseInt(n, 10) || 0);
@@ -499,7 +709,7 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
         }}
         return 0;
     }}
-    function __agyZhFetchLatestRelease(timeoutMs = 4500) {{
+    function __agyZhFetchLatestRelease(timeoutMs = 5000) {{
         return new Promise((resolve) => {{
             let settled = false;
             let req = null;
@@ -525,7 +735,7 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                     }}
                     resp.on('data', (chunk) => {{
                         raw += chunk.toString('utf8');
-                        if (raw.length > 262144) {{
+                        if (raw.length > 524288) {{
                             try {{ if (req) req.abort(); }} catch {{}}
                             done({{ ok: false, error: '响应体积超出限制' }});
                         }}
@@ -540,6 +750,20 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                                 return;
                             }}
                             const body = String(data.body || '').replace(/\\r\\n/g, '\\n').trim();
+                            let assetUrl = '';
+                            let assetName = '';
+                            let assetSize = 0;
+                            if (Array.isArray(data.assets)) {{
+                                const pickAsset = (ext) => data.assets.find((a) => String(a.name || '').toLowerCase().endsWith(ext));
+                                const chosen = (process.platform === 'win32'
+                                    ? (pickAsset('.exe') || pickAsset('.asar') || pickAsset('.zip'))
+                                    : (pickAsset('.asar') || pickAsset('.zip') || pickAsset('.exe')));
+                                if (chosen) {{
+                                    assetUrl = String(chosen.browser_download_url || '');
+                                    assetName = String(chosen.name || '');
+                                    assetSize = Number(chosen.size || 0);
+                                }}
+                            }}
                             done({{
                                 ok: true,
                                 latestTag,
@@ -549,6 +773,9 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                                 releaseTitle: String(data.name || latestTag),
                                 notesPreview: body.slice(0, 260),
                                 hasUpdate: __agyZhCompareVer(latestVersion, __agyZhPatchVer) > 0,
+                                assetUrl,
+                                assetName,
+                                assetSize,
                             }});
                         }} catch (_err) {{
                             done({{ ok: false, error: '响应 JSON 解析失败' }});
@@ -566,6 +793,10 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
         try {{ electron_1.ipcMain.removeHandler('zh-localization:get-meta'); }} catch {{}}
         try {{ electron_1.ipcMain.removeHandler('zh-localization:check-update'); }} catch {{}}
         try {{ electron_1.ipcMain.removeHandler('zh-localization:open-release'); }} catch {{}}
+        try {{ electron_1.ipcMain.removeHandler('zh-localization:get-download-status'); }} catch {{}}
+        try {{ electron_1.ipcMain.removeHandler('zh-localization:download-update'); }} catch {{}}
+        try {{ electron_1.ipcMain.removeHandler('zh-localization:apply-and-restart'); }} catch {{}}
+
         electron_1.ipcMain.handle('zh-localization:get-meta', () => {{
             const appVer = String(electron_1.app?.getVersion?.() || __agyZhTargetAppVer);
             return {{
@@ -577,9 +808,10 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                 releasesUrl: __agyZhRepoBase + '/releases/latest',
             }};
         }});
+
         electron_1.ipcMain.handle('zh-localization:check-update', async () => {{
             const appVer = String(electron_1.app?.getVersion?.() || __agyZhTargetAppVer);
-            const res = await __agyZhFetchLatestRelease(4500);
+            const res = await __agyZhFetchLatestRelease(5000);
             return Object.assign({{
                 appVersion: appVer,
                 patchVersion: __agyZhPatchVer,
@@ -588,10 +820,207 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                 checkedAt: Date.now(),
             }}, res);
         }});
+
         electron_1.ipcMain.handle('zh-localization:open-release', (_event, targetUrl) => {{
             const url = typeof targetUrl === 'string' ? targetUrl.trim() : '';
             const safeUrl = url.startsWith(__agyZhRepoBase) ? url : (__agyZhRepoBase + '/releases/latest');
             return electron_1.shell.openExternal(safeUrl);
+        }});
+
+        electron_1.ipcMain.handle('zh-localization:get-download-status', () => {{
+            return __agyZhDownloadState;
+        }});
+
+        electron_1.ipcMain.handle('zh-localization:download-update', async (_event, opts = {{}}) => {{
+            const isSimulated = Boolean(opts && opts.isSimulated);
+            if (isSimulated) {{
+                __agyZhDownloadState = {{
+                    status: 'downloading',
+                    percent: 0,
+                    receivedBytes: 0,
+                    totalBytes: 25 * 1024 * 1024,
+                    error: '',
+                    stagedPath: 'simulated',
+                    assetName: 'app.asar (测试预览模拟)'
+                }};
+                let p = 0;
+                const simTimer = setInterval(() => {{
+                    p += 20;
+                    if (p >= 100) {{
+                        p = 100;
+                        clearInterval(simTimer);
+                        __agyZhDownloadState.status = 'ready';
+                        __agyZhDownloadState.percent = 100;
+                        __agyZhDownloadState.receivedBytes = __agyZhDownloadState.totalBytes;
+                    }} else {{
+                        __agyZhDownloadState.percent = p;
+                        __agyZhDownloadState.receivedBytes = Math.floor((p / 100) * __agyZhDownloadState.totalBytes);
+                    }}
+                }}, 250);
+                return {{ ok: true, simulated: true }};
+            }}
+
+            const downloadUrl = (opts && opts.downloadUrl) || '';
+            if (!downloadUrl) {{
+                __agyZhDownloadState = {{
+                    status: 'error',
+                    percent: 0,
+                    receivedBytes: 0,
+                    totalBytes: 0,
+                    error: '未获取到新版下载链接，请前往 GitHub 手动下载',
+                    stagedPath: '',
+                    assetName: ''
+                }};
+                return {{ ok: false, error: __agyZhDownloadState.error }};
+            }}
+
+            const fs = require('fs');
+            const path = require('path');
+            const tempDir = path.join(electron_1.app.getPath('temp'), 'antigravity-zh-update');
+            if (!fs.existsSync(tempDir)) {{
+                try {{ fs.mkdirSync(tempDir, {{ recursive: true }}); }} catch (_e) {{}}
+            }}
+            const filename = path.basename(downloadUrl.split('?')[0]) || 'app.asar';
+            const stagedFile = path.join(tempDir, filename);
+
+            __agyZhDownloadState = {{
+                status: 'downloading',
+                percent: 0,
+                receivedBytes: 0,
+                totalBytes: Number(opts.totalBytes || 0),
+                error: '',
+                stagedPath: stagedFile,
+                assetName: filename
+            }};
+
+            return new Promise((resolve) => {{
+                try {{
+                    const outStream = fs.createWriteStream(stagedFile);
+                    const req = electron_1.net.request({{ method: 'GET', url: downloadUrl }});
+                    req.setHeader('User-Agent', 'antigravity-zh-cn/' + __agyZhPatchVer);
+                    req.on('response', (resp) => {{
+                        if (resp.statusCode >= 400) {{
+                            __agyZhDownloadState.status = 'error';
+                            __agyZhDownloadState.error = '下载响应异常: HTTP ' + resp.statusCode;
+                            outStream.close();
+                            resolve({{ ok: false, error: __agyZhDownloadState.error }});
+                            return;
+                        }}
+                        const len = parseInt(resp.headers['content-length'] || opts.totalBytes || 0, 10);
+                        if (len > 0) __agyZhDownloadState.totalBytes = len;
+
+                        resp.on('data', (chunk) => {{
+                            outStream.write(chunk);
+                            __agyZhDownloadState.receivedBytes += chunk.length;
+                            if (__agyZhDownloadState.totalBytes > 0) {{
+                                __agyZhDownloadState.percent = Math.min(99, Math.floor((__agyZhDownloadState.receivedBytes / __agyZhDownloadState.totalBytes) * 100));
+                            }}
+                        }});
+                        resp.on('end', () => {{
+                            outStream.end(() => {{
+                                __agyZhDownloadState.status = 'ready';
+                                __agyZhDownloadState.percent = 100;
+                                resolve({{ ok: true, stagedPath: stagedFile }});
+                            }});
+                        }});
+                    }});
+                    req.on('error', (err) => {{
+                        outStream.close();
+                        __agyZhDownloadState.status = 'error';
+                        __agyZhDownloadState.error = String((err && err.message) || err || '网络中断');
+                        resolve({{ ok: false, error: __agyZhDownloadState.error }});
+                    }});
+                    req.end();
+                }} catch (e) {{
+                    __agyZhDownloadState.status = 'error';
+                    __agyZhDownloadState.error = String((e && e.message) || e);
+                    resolve({{ ok: false, error: __agyZhDownloadState.error }});
+                }}
+            }});
+        }});
+
+        electron_1.ipcMain.handle('zh-localization:apply-and-restart', async (_event, opts = {{}}) => {{
+            const fs = require('fs');
+            const path = require('path');
+            const cp = require('child_process');
+            const isSimulated = Boolean(opts && opts.isSimulated);
+
+            const exePath = electron_1.app?.getPath('exe') || process.execPath;
+            const appDir = path.dirname(exePath);
+            const targetAsar = path.join(appDir, 'resources', 'app.asar');
+            const tempDir = electron_1.app.getPath('temp');
+
+            if (isSimulated || __agyZhDownloadState.stagedPath === 'simulated') {{
+                const batPath = path.join(tempDir, 'agy_zh_simulated_restart.bat');
+                const batContent = [
+                    '@echo off',
+                    'chcp 65001 >nul',
+                    'echo 正在执行测试预览模拟重启...',
+                    'ping -n 3 127.0.0.1 >nul',
+                    'set "ELECTRON_NO_ATTACH_CONSOLE=1"',
+                    'start "" "' + exePath + '"',
+                    'exit /b 0'
+                ].join('\\r\\n');
+                fs.writeFileSync(batPath, batContent, 'utf8');
+                const child = cp.spawn('cmd.exe', ['/c', batPath], {{
+                    detached: true,
+                    stdio: 'ignore',
+                    windowsHide: true,
+                }});
+                child.unref();
+                setTimeout(() => {{ electron_1.app.quit(); }}, 150);
+                return {{ ok: true, restarted: true, simulated: true }};
+            }}
+
+            const stagedPath = __agyZhDownloadState.stagedPath;
+            if (!stagedPath || !fs.existsSync(stagedPath)) {{
+                return {{ ok: false, error: '未找到已下载补丁文件: ' + stagedPath }};
+            }}
+
+            const backupDir = fs.existsSync('G:\\\\Anget backup')
+                ? 'G:\\\\Anget backup\\\\Antigravity_auto_update_backup'
+                : path.join(appDir, 'resources');
+            const batPath = path.join(tempDir, 'agy_zh_apply_update.bat');
+
+            const batLines = [
+                '@echo off',
+                'chcp 65001 >nul',
+                'title Antigravity 中文汉化热更新中...',
+                'set /a tries=0',
+                ':WAIT_LOOP',
+                'set /a tries+=1',
+                'tasklist /FI "IMAGENAME eq Antigravity.exe" 2>nul | find /I "Antigravity.exe" >nul',
+                'if not errorlevel 1 (',
+                '    if %tries% GEQ 6 taskkill /F /IM Antigravity.exe >nul 2>&1',
+                '    ping -n 2 127.0.0.1 >nul',
+                '    goto WAIT_LOOP',
+                ')',
+                'taskkill /F /IM language_server_windows_x64.exe >nul 2>&1',
+                'ping -n 2 127.0.0.1 >nul',
+                'if not exist "' + backupDir + '" mkdir "' + backupDir + '" >nul 2>&1',
+                'copy /y "' + targetAsar + '" "' + backupDir + '\\\\app.asar.before_hot_update" >nul',
+            ];
+
+            if (stagedPath.toLowerCase().endsWith('.exe')) {{
+                batLines.push('"' + stagedPath + '" install --app-dir "' + appDir + '"');
+                batLines.push('set "ELECTRON_NO_ATTACH_CONSOLE=1"');
+                batLines.push('start "" "' + exePath + '"');
+            }} else {{
+                batLines.push('copy /y "' + stagedPath + '" "' + targetAsar + '" >nul');
+                batLines.push('set "ELECTRON_NO_ATTACH_CONSOLE=1"');
+                batLines.push('start "" "' + exePath + '"');
+            }}
+            batLines.push('exit /b 0');
+
+            fs.writeFileSync(batPath, batLines.join('\\r\\n'), 'utf8');
+            const child = cp.spawn('cmd.exe', ['/c', batPath], {{
+                detached: true,
+                stdio: 'ignore',
+                windowsHide: true,
+            }});
+            child.unref();
+            setTimeout(() => {{ electron_1.app.quit(); }}, 150);
+            return {{ ok: true, applied: true }};
         }});
     }}
     // --- AGY_ZH_UPDATE_IPC_END ---
@@ -604,36 +1033,88 @@ def patch_ipc_handlers(
     patch_version: str = PATCH_VERSION,
     warn: Callable[[str], None] = print,
 ) -> None:
-    """Patch dist/ipcHandlers.js context menus, native dialogs, and update IPC."""
+    """Patch dist/ipcHandlers.js adaptively across versions (context menus, native dialogs, updater:apply, update IPC)."""
     target = dist_dir / "ipcHandlers.js"
     text = target.read_text(encoding="utf-8")
+
+    elec_m = re.search(r"const\s+([A-Za-z_$][\w$]*)\s*=\s*require\(['\"]electron['\"]\);", text)
+    upd_m = re.search(r"const\s+([A-Za-z_$][\w$]*)\s*=\s*require\(['\"]\.\/updater['\"]\);", text)
+    types_m = re.search(r"const\s+([A-Za-z_$][\w$]*)\s*=\s*require\(['\"]\.\/types['\"]\);", text)
+    elec_mod = elec_m.group(1) if elec_m else "electron_1"
+    upd_mod = upd_m.group(1) if upd_m else "updater_1"
+    types_mod = types_m.group(1) if types_m else "types_1"
+
+    dict_only = CONTEXT_MENU_DICT_AND_FN.strip().rsplit("function buildContextMenuTemplate", 1)[0].strip()
     if "translateContextMenuLabel" not in text:
-        text = text.replace(
-            "function buildContextMenuTemplate(items, onSelect) {",
-            CONTEXT_MENU_DICT_AND_FN,
-            1,
-        )
-        text = text.replace("label: item.label ?? '',", "label: translateContextMenuLabel(item.label) ?? '',")
-    else:
-        updated_block = CONTEXT_MENU_DICT_AND_FN.strip().rsplit("function buildContextMenuTemplate", 1)[0].strip()
-        text = re.sub(
-            r"const\s+contextMenuDict\s*=\s*\{[\s\S]*?\n\s*\};?\s*\nfunction\s+translateContextMenuLabel\([^\)]*\)\s*\{[\s\S]*?\n\}",
-            updated_block,
+        if re.search(r"\b(?:const|let|var)\s+contextMenuDict\s*=", text):
+            text = re.sub(
+                r"\b(?:const|let|var)\s+contextMenuDict\s*=\s*\{[\s\S]*?\n\s*\};?",
+                "",
+                text,
+                count=1,
+            )
+        ctx_fn_re = re.compile(r"function\s+buildContextMenuTemplate\s*\([^)]*\)\s*\{")
+        text, ctx_cnt = ctx_fn_re.subn(
+            lambda m: dict_only + "\n\n" + m.group(0),
             text,
             count=1,
         )
+        if ctx_cnt == 0:
+            text = dict_only + "\n\n" + text
+        text = re.sub(
+            r"label:\s*(?!translateContextMenuLabel\()(item(?:\?\.)?\.label(?:\s*\?\?\s*['\"]{2})?)\s*,",
+            lambda m: (
+                f"label: translateContextMenuLabel({m.group(1).split('??')[0].strip()}) ?? '',"
+                if "??" in m.group(1)
+                else f"label: translateContextMenuLabel({m.group(1).strip()}),"
+            ),
+            text,
+        )
+    else:
+        text = re.sub(
+            r"\b(?:const|let|var)\s+contextMenuDict\s*=\s*\{[\s\S]*?\n\s*\};?\s*\nfunction\s+translateContextMenuLabel\([^\)]*\)\s*\{[\s\S]*?\n\}",
+            dict_only,
+            text,
+            count=1,
+        )
+
+    # Fix updater:apply so invoking updater:apply directly delegates to applyHostUpdate()
+    # rather than blindly marking un-downloaded state as Ready.
+    updater_apply_re = re.compile(
+        r"("
+        + re.escape(elec_mod)
+        + r"\.ipcMain\.handle\(\s*['\"]updater:apply['\"]\s*,\s*async\s*\(\)\s*=>\s*\{)[\s\S]{0,220}?(\n\s*\}\);)"
+    )
+    text = updater_apply_re.sub(
+        lambda m: (
+            f"{m.group(1)}\n"
+            f"        if (typeof (0, {upd_mod}.applyHostUpdate) === 'function') {{\n"
+            f"            return (0, {upd_mod}.applyHostUpdate)();\n"
+            "        }\n"
+            f"        (0, {upd_mod}.broadcastState)({{ type: {types_mod}.UpdateState.Ready }});"
+            f"{m.group(2)}"
+        ),
+        text,
+        count=1,
+    )
 
     text = re.sub(
         r"\r?\n[ \t]*// --- AGY_ZH_UPDATE_IPC_START ---[\s\S]*?// --- AGY_ZH_UPDATE_IPC_END ---\r?\n?",
         "\n",
         text,
     )
+    ipc_block = _build_update_ipc_block(target_app_version=target_app_version, patch_version=patch_version)
+    if elec_mod != "electron_1":
+        ipc_block = ipc_block.replace("electron_1.", f"{elec_mod}.")
+
     reg_anchor = "(0, wcvIpcHandlers_1.registerWcvIpcHandlers)(undefined, undefined, storageManager);"
+    reg_fn_re = re.compile(r"(function\s+registerIpcHandlers\s*\([^)]*\)\s*\{)")
     if reg_anchor in text:
-        ipc_block = _build_update_ipc_block(target_app_version=target_app_version, patch_version=patch_version)
         text = text.replace(reg_anchor, ipc_block + "    " + reg_anchor, 1)
+    elif reg_fn_re.search(text):
+        text = reg_fn_re.sub(lambda m: m.group(1) + "\n" + ipc_block, text, count=1)
     else:
-        warn("Notice: registerWcvIpcHandlers anchor did not match in dist/ipcHandlers.js")
+        warn("Notice: registerIpcHandlers anchor did not match in dist/ipcHandlers.js")
 
     text = apply_pairs(text, REPLACEMENT_TABLES["ipcHandlers.js"])
     target.write_text(text, encoding="utf-8")
@@ -667,7 +1148,8 @@ def apply_all_patches(
     extracted_dir: Path,
     engine_template: str,
     dictionary: dict[str, str],
-    block_auto_update: bool = True,
+    block_auto_update: bool = False,
+    is_test_preview: bool = False,
     warn: Callable[[str], None] = print,
 ) -> list[str]:
     """Run all localization patches inside an extracted ASAR directory."""
@@ -684,6 +1166,7 @@ def apply_all_patches(
         dictionary,
         target_app_version=app_ver,
         patch_version=PATCH_VERSION,
+        is_test_preview=is_test_preview,
     )
     patch_preload(dist_dir, engine_code)
     patch_menu(dist_dir)

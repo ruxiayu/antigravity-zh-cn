@@ -220,7 +220,8 @@ def build_patched_asar(
     output_asar: Path,
     dict_path: Path,
     engine_path: Path,
-    block_auto_update: bool = True,
+    block_auto_update: bool = False,
+    is_test_preview: bool = False,
 ) -> dict[str, Any]:
     """Extract source ASAR, inject localization patches, verify integrity & parity, and repack."""
     dictionary = json.loads(dict_path.read_text(encoding="utf-8"))
@@ -243,6 +244,7 @@ def build_patched_asar(
             engine_template=engine_template,
             dictionary=dictionary,
             block_auto_update=block_auto_update,
+            is_test_preview=is_test_preview,
         )
 
         print(f"[3/5] Verifying JS syntax across {len(touched)} modules...")
@@ -273,8 +275,13 @@ def build_patched_asar(
         # Copy accompanying .unpacked dir if generated beside packed_asar in build mode
         packed_unpacked_dir = packed_asar.with_name(packed_asar.name + ".unpacked")
         target_unpacked_dir = output_asar.with_name(output_asar.name + ".unpacked")
-        if packed_unpacked_dir.exists() and not target_unpacked_dir.exists():
-            shutil.copytree(packed_unpacked_dir, target_unpacked_dir, symlinks=True)
+        if packed_unpacked_dir.exists():
+            shutil.copytree(
+                packed_unpacked_dir,
+                target_unpacked_dir,
+                symlinks=True,
+                dirs_exist_ok=True,
+            )
 
     return {
         "version": app_ver,
@@ -295,18 +302,28 @@ def cmd_install(args: argparse.Namespace) -> int:
         shutil.copy2(target_asar, backup_asar)
         source_asar = backup_asar
     elif backup_asar.is_file() and not is_asar_localized(backup_asar):
-        print(f"[Source] Using preserved clean backup: {backup_asar}")
-        source_asar = backup_asar
+        bak_ver = read_asar_version(backup_asar)
+        cur_ver = read_asar_version(target_asar)
+        if bak_ver == cur_ver or bak_ver == "unknown":
+            print(f"[Source] Using preserved clean backup: {backup_asar}")
+            source_asar = backup_asar
+        else:
+            print(f"[Source] Ignoring stale v{bak_ver} backup (target is v{cur_ver}); re-patching target idempotently.")
+            source_asar = target_asar
     else:
         print("[Source] Target is already localized without clean backup; re-patching idempotently.")
         source_asar = target_asar
 
+    block_update = bool(getattr(args, "block_auto_update", False)) and not bool(
+        getattr(args, "keep_auto_update", False)
+    )
     result = build_patched_asar(
         source_asar=source_asar,
         output_asar=target_asar,
         dict_path=Path(args.dict).resolve(),
         engine_path=Path(args.engine).resolve(),
-        block_auto_update=not args.keep_auto_update,
+        block_auto_update=block_update,
+        is_test_preview=getattr(args, "test_preview", False),
     )
     print(f"[5/5] Localization installed successfully!")
     print(f"      Target ASAR : {target_asar}")
@@ -406,12 +423,16 @@ def cmd_check_update(_args: argparse.Namespace | None = None) -> int:
 
 def cmd_build(args: argparse.Namespace) -> int:
     """Offline build mode: transform --input-asar into --output-asar."""
+    block_update = bool(getattr(args, "block_auto_update", False)) and not bool(
+        getattr(args, "keep_auto_update", False)
+    )
     result = build_patched_asar(
         source_asar=Path(args.input_asar).resolve(),
         output_asar=Path(args.output_asar).resolve(),
         dict_path=Path(args.dict).resolve(),
         engine_path=Path(args.engine).resolve(),
-        block_auto_update=not args.keep_auto_update,
+        block_auto_update=block_update,
+        is_test_preview=getattr(args, "test_preview", False),
     )
     print(
         f"Build complete: {args.output_asar} "
@@ -501,8 +522,8 @@ def run_interactive_menu(base_args: argparse.Namespace) -> int:
     while True:
         print(
             "\n请选择操作:\n"
-            "  [1] 注入深度汉化（推荐：含防官方后台静默升级覆盖）\n"
-            "  [2] 注入深度汉化（保留官方自动更新）\n"
+            "  [1] 注入深度汉化（推荐：全版本自适应 + 支持右上角「更新可用」直接升级）\n"
+            "  [2] 注入深度汉化（仅手动确认后下载官方更新 · 点右上角再下载安装）\n"
             "  [3] 恢复官方原版（从 app.asar.original.bak 无损还原）\n"
             "  [4] 查看当前 Antigravity 安装与汉化状态\n"
             "  [5] 检查 GitHub 最新汉化包更新\n"
@@ -527,7 +548,8 @@ def run_interactive_menu(base_args: argparse.Namespace) -> int:
                 asar=base_args.asar,
                 dict=base_args.dict,
                 engine=base_args.engine,
-                keep_auto_update=(choice == "2"),
+                keep_auto_update=(choice == "1"),
+                block_auto_update=(choice == "2"),
             )
             if choice in {"1", "2"}:
                 print("\n[准备] 正在检查并关闭运行中的 Antigravity 进程...")
@@ -535,6 +557,9 @@ def run_interactive_menu(base_args: argparse.Namespace) -> int:
                 rc = cmd_install(run_args)
                 if rc == 0:
                     print("\n[完成] 深度汉化注入成功！建议在扩展商店确认安装微软官方简体中文包，实现双层全中文。")
+                    if choice == "1":
+                        print("[提示] 已保留官方更新通道，点击客户端右上角「更新可用」即可直接升级新版 Antigravity；")
+                        print("       若官方新版覆盖了界面语言，重新运行一次本工具即可为新版自适应重注汉化。")
                     _launch_antigravity_detached(exe_path)
             elif choice == "3":
                 print("\n[准备] 正在检查并关闭运行中的 Antigravity 进程...")
@@ -572,7 +597,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p_install.add_argument(
         "--keep-auto-update",
         action="store_true",
-        help="Do not disable silent autoDownload/autoInstallOnAppQuit in dist/updater.js",
+        help="Keep official autoDownload/autoInstallOnAppQuit enabled (default)",
+    )
+    p_install.add_argument(
+        "--block-auto-update",
+        action="store_true",
+        help="Disable background autoDownload/autoInstallOnAppQuit until top-right Update is clicked",
+    )
+
+    p_install.add_argument(
+        "--test-preview",
+        action="store_true",
+        help="Enable local UI test preview mode (adds simulated update & restart controls)",
     )
 
     p_restore = sub.add_parser("restore", help="Restore official original app.asar from backup")
@@ -586,13 +622,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p_build = sub.add_parser("build", help="Build a patched ASAR offline from --input-asar to --output-asar")
     p_build.add_argument("--input-asar", required=True, help="Clean upstream app.asar")
     p_build.add_argument("--output-asar", required=True, help="Output localized app.asar")
-    p_build.add_argument("--keep-auto-update", action="store_true", help="Keep silent auto-update enabled")
+    p_build.add_argument("--keep-auto-update", action="store_true", help="Keep official auto-update enabled (default)")
+    p_build.add_argument("--block-auto-update", action="store_true", help="Disable background auto-update until clicked")
+    p_build.add_argument("--test-preview", action="store_true", help="Enable test preview controls")
 
     sub.add_parser("check-update", help="Check latest Chinese localization release on GitHub")
 
     args = parser.parse_args(argv)
     if not hasattr(args, "keep_auto_update"):
         args.keep_auto_update = False
+    if not hasattr(args, "block_auto_update"):
+        args.block_auto_update = False
     return args
 
 

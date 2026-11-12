@@ -14,7 +14,7 @@
     - `MutationObserver` with Shadow DOM traversal covering dialogs, tooltips, popovers, settings pages, model pickers, and quota cards.
     - Context-aware formatters: cross-node quota restructuring (`77% left` -> `77% 剩余`), reset timers (`5h limit` -> `5小时限额`, `Resets in 2d 17h` -> `2天17小时后重置`), dynamic model group tooltips, and voice/notification labels.
   - **Main-Process Native Patches (`src/patches_main.py`)**:
-    - Native application menus (`dist/menu.js`), native conversation context menus & dialogs (`dist/ipcHandlers.js`), tray menus (`dist/tray.js`), updater UI + optional silent update protection (`dist/updater.js`), Passkey/WebAuthn prompts (`dist/webauthn.js`, `dist/cablev2.js`), and setup wizards (`dist/ideInstall/wizardHtml.js`, etc.).
+    - Native application menus (`dist/menu.js`), native conversation context menus & dialogs (`dist/ipcHandlers.js`), tray menus (`dist/tray.js`), updater UI + one-click top-right official update reliability fix & optional background download guard (`dist/updater.js`), Passkey/WebAuthn prompts (`dist/webauthn.js`, `dist/cablev2.js`), and setup wizards (`dist/ideInstall/wizardHtml.js`, etc.).
 - **Safe, Reversible & Built-in Verification**
   - Preserves original archive as `app.asar.original.bak` before patching so `restore` rolls back cleanly.
   - Built-in pure-Python ASAR extraction/packing fallback requires **no Node.js runtime** for end users (when `node` is present, pre-pack `node --check` syntax verification runs automatically).
@@ -46,11 +46,11 @@ python src/localize.py status
 # Check GitHub for newer localization releases
 python src/localize.py check-update
 
-# Backup original ASAR and apply localization (disables silent auto-update overwrite by default)
+# Backup original ASAR and apply version-adaptive localization (keeps official top-right updates working smoothly by default)
 python src/localize.py install
 
-# Keep upstream silent auto-update enabled
-python src/localize.py install --keep-auto-update
+# Optional: disable background auto-download & quit-install until the user clicks the top-right Update button
+python src/localize.py install --block-auto-update
 
 # Lossless rollback to original app.asar
 python src/localize.py restore

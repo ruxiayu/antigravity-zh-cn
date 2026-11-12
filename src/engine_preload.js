@@ -910,9 +910,12 @@
     checking: false,
     simulatedUpdate: false,
     copied: false,
+    downloadStatus: 'idle', // 'idle' | 'downloading' | 'ready' | 'error'
+    downloadPercent: 0,
+    downloadError: '',
     meta: {
       appVersion: (AGY_ZH_META && AGY_ZH_META.targetAppVersion) || '2.31.0',
-      patchVersion: (AGY_ZH_META && AGY_ZH_META.patchVersion) || '2.31.2',
+      patchVersion: (AGY_ZH_META && AGY_ZH_META.patchVersion) || '2.31.4',
       targetAppVersion: (AGY_ZH_META && AGY_ZH_META.targetAppVersion) || '2.31.0',
       versionMismatch: false,
       repoUrl: (AGY_ZH_META && AGY_ZH_META.repoUrl) || 'https://github.com/ruxiayu/antigravity-zh-cn',
@@ -925,6 +928,24 @@
   let mountTimer = null;
   let bootMetaDone = false;
   let autoCheckDone = false;
+  let downloadPollTimer = null;
+
+  function startDownloadPolling() {
+    if (downloadPollTimer) clearInterval(downloadPollTimer);
+    downloadPollTimer = setInterval(function() {
+      invokeUpdateIpc('zh-localization:get-download-status').then(function(st) {
+        if (!st) return;
+        uiState.downloadStatus = st.status || 'idle';
+        uiState.downloadPercent = Number(st.percent || 0);
+        uiState.downloadError = st.error || '';
+        renderPositionA(findSettingsSidebarAnchor());
+        if (st.status === 'ready' || st.status === 'error') {
+          clearInterval(downloadPollTimer);
+          downloadPollTimer = null;
+        }
+      });
+    }, 250);
+  }
 
   function readStorage(key, fallback) {
     try {
@@ -970,6 +991,12 @@
       if (typeof electron_1 !== 'undefined' && electron_1 && electron_1.ipcRenderer && typeof electron_1.ipcRenderer.invoke === 'function') {
         return electron_1.ipcRenderer;
       }
+      if (typeof require === 'function') {
+        const el = require('electron');
+        if (el && el.ipcRenderer && typeof el.ipcRenderer.invoke === 'function') {
+          return el.ipcRenderer;
+        }
+      }
     } catch (_e) {}
     return null;
   }
@@ -994,7 +1021,9 @@
         latestVersion: '2.32.0',
         latestTag: 'v2.32.0',
         htmlUrl: meta.releasesUrl,
-        summary: '模拟状态：已发布 v2.32.0 汉化适配更新，当前客户端运行 v' + meta.appVersion + '，补丁 v' + meta.patchVersion + '。',
+        assetUrl: 'simulated',
+        assetSize: 25 * 1024 * 1024,
+        summary: '发现 GitHub 新版汉化 v2.32.0（当前补丁 v' + meta.patchVersion + '）。支持应用内一键下载更新，无需打开浏览器。',
         error: ''
       };
     }
@@ -1005,6 +1034,8 @@
         latestVersion: remote && remote.latestVersion ? remote.latestVersion : '',
         latestTag: remote && remote.latestTag ? remote.latestTag : '',
         htmlUrl: (remote && remote.htmlUrl) || meta.releasesUrl,
+        assetUrl: (remote && remote.assetUrl) || '',
+        assetSize: (remote && remote.assetSize) || 0,
         summary: '检测到客户端已升级至 v' + meta.appVersion + '（当前补丁适配 v' + meta.targetAppVersion + '），建议获取新版汉化。',
         error: ''
       };
@@ -1016,7 +1047,9 @@
         latestVersion: remote.latestVersion,
         latestTag: remote.latestTag,
         htmlUrl: remote.htmlUrl || meta.releasesUrl,
-        summary: '发现 GitHub 新版汉化 ' + remote.latestTag + '（当前补丁 v' + meta.patchVersion + '）。',
+        assetUrl: remote.assetUrl || '',
+        assetSize: remote.assetSize || 0,
+        summary: '发现 GitHub 新版汉化 ' + remote.latestTag + '（当前补丁 v' + meta.patchVersion + '）。可直接在当前界面一键下载更新。',
         error: ''
       };
     }
@@ -1122,42 +1155,58 @@
     if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function' || typeof document.createElement !== 'function') {
       return null;
     }
+    const explicitSidebar = document.querySelector && document.querySelector('[data-testid="settings-sidebar"]');
     const navTokens = ['通用', '应用设置', '外观', '快捷键', '驱动模型', 'General', 'App Settings', 'Appearance', 'Shortcuts'];
-    const candidates = document.querySelectorAll('button, a, div, span, li');
-    for (let i = 0; i < candidates.length; i++) {
-      const el = candidates[i];
-      if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
-      const txt = (el.textContent || '').trim();
-      if (txt !== '提交反馈' && txt !== 'Give Feedback') continue;
-      if (el.children && el.children.length > 2) continue;
+    const candidates = explicitSidebar ? [explicitSidebar] : document.querySelectorAll('button, a, div, span, li');
 
+    for (let i = 0; i < candidates.length; i++) {
       let sidebarRoot = null;
-      let cur = el.parentElement;
-      for (let step = 0; step < 8 && cur && cur !== document.body; step++) {
-        const allText = cur.textContent || '';
-        let hits = 0;
-        for (let k = 0; k < navTokens.length; k++) {
-          if (allText.indexOf(navTokens[k]) !== -1) hits++;
+      let el = null;
+      if (explicitSidebar) {
+        sidebarRoot = explicitSidebar;
+        el = explicitSidebar.querySelector('[data-testid="settings-nav-item-Provide Feedback"]') ||
+             explicitSidebar.querySelector('button, a, [role="button"]');
+      } else {
+        el = candidates[i];
+        if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
+        const txt = (el.textContent || '').trim();
+        if (txt !== '提交反馈' && txt !== 'Give Feedback') continue;
+        if (el.children && el.children.length > 2) continue;
+
+        let cur = el.parentElement;
+        for (let step = 0; step < 8 && cur && cur !== document.body; step++) {
+          const allText = cur.textContent || '';
+          let hits = 0;
+          for (let k = 0; k < navTokens.length; k++) {
+            if (allText.indexOf(navTokens[k]) !== -1) hits++;
+          }
+          if (hits >= 3) {
+            sidebarRoot = cur;
+            break;
+          }
+          cur = cur.parentElement;
         }
-        if (hits >= 3) {
-          sidebarRoot = cur;
-          break;
-        }
-        cur = cur.parentElement;
       }
       if (!sidebarRoot) continue;
 
-      let feedbackRow = (el.closest && el.closest('button, a, [role="button"]')) || el;
-      while (feedbackRow.parentElement && feedbackRow.parentElement !== sidebarRoot && feedbackRow.parentElement.children && feedbackRow.parentElement.children.length === 1) {
-        feedbackRow = feedbackRow.parentElement;
+      let feedbackRow = (explicitSidebar && explicitSidebar.querySelector('[data-testid="settings-nav-item-Provide Feedback"]')) ||
+                        (el && el.closest && el.closest('button, a, [role="button"]')) || el;
+      if (feedbackRow) {
+        while (feedbackRow.parentElement && feedbackRow.parentElement !== sidebarRoot && feedbackRow.parentElement.children && feedbackRow.parentElement.children.length === 1) {
+          feedbackRow = feedbackRow.parentElement;
+        }
       }
+
+      // 向上寻找完整设置窗口的容器（跨过侧边栏底部的账户信息与抽屉包装层）
       let dialogRoot = sidebarRoot.parentElement || document.body;
-      const sideTextLen = (sidebarRoot.textContent || '').length;
-      for (let up = 0; up < 4 && dialogRoot && dialogRoot.parentElement && dialogRoot.parentElement !== document.body; up++) {
-        if ((dialogRoot.textContent || '').length > sideTextLen + 40) {
+      let curAncestor = sidebarRoot.parentElement;
+      for (let up = 0; up < 8 && curAncestor && curAncestor !== document.body; up++) {
+        if (curAncestor.querySelector && (curAncestor.querySelector('#agent-permissions') || curAncestor.querySelector('#voice') || (curAncestor.textContent || '').length > (sidebarRoot.textContent || '').length + 200)) {
+          dialogRoot = curAncestor;
           break;
         }
-        dialogRoot = dialogRoot.parentElement;
+        dialogRoot = curAncestor;
+        curAncestor = curAncestor.parentElement;
       }
       return { sidebarRoot, feedbackRow, dialogRoot };
     }
@@ -1165,28 +1214,64 @@
   }
 
   function findGeneralSectionsAnchor(dialogRoot, sidebarRoot) {
-    if (!dialogRoot || typeof dialogRoot.querySelectorAll !== 'function') return null;
-    const nodes = dialogRoot.querySelectorAll('h1, h2, h3, h4, div, span, p');
-    for (let i = 0; i < nodes.length; i++) {
-      const el = nodes[i];
-      if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
-      if (sidebarRoot && typeof sidebarRoot.contains === 'function' && sidebarRoot.contains(el)) continue;
-      const txt = (el.textContent || '').trim();
-      if (txt !== '全局权限' && txt !== 'Global Permissions') continue;
+    if (typeof document === 'undefined') return null;
 
-      let sec = el;
-      for (let step = 0; step < 6 && sec && sec.parentElement && sec.parentElement !== dialogRoot; step++) {
-        const pTxt = sec.parentElement.textContent || '';
-        if (pTxt.indexOf('智能体行为') !== -1 || pTxt.indexOf('Agent Behavior') !== -1 || pTxt.indexOf('执行') !== -1 || pTxt.indexOf('Execution') !== -1) {
-          return { sectionsContainer: sec.parentElement, permSection: sec };
+    // 1. 最高优先级：Antigravity 原生唯一 ID（不受汉化或字符数影响）
+    const agentPerm = document.getElementById('agent-permissions');
+    if (agentPerm && agentPerm.parentElement) {
+      const p = agentPerm.parentElement;
+      if (!sidebarRoot || !sidebarRoot.contains || !sidebarRoot.contains(p)) {
+        return { sectionsContainer: p, permSection: agentPerm };
+      }
+    }
+    const voiceSec = document.getElementById('voice');
+    if (voiceSec && voiceSec.parentElement) {
+      const p = voiceSec.parentElement;
+      if (!sidebarRoot || !sidebarRoot.contains || !sidebarRoot.contains(p)) {
+        return { sectionsContainer: p, permSection: voiceSec };
+      }
+    }
+
+    // 2. 容器与文档级多级查找兜底
+    const searchRoots = [];
+    if (dialogRoot && dialogRoot !== document.body) searchRoots.push(dialogRoot);
+    searchRoots.push(document.body || document.documentElement);
+
+    for (let r = 0; r < searchRoots.length; r++) {
+      const root = searchRoots[r];
+      if (!root || typeof root.querySelectorAll !== 'function') continue;
+
+      const nodes = root.querySelectorAll('h1, h2, h3, h4, div, span, p');
+      for (let i = 0; i < nodes.length; i++) {
+        const el = nodes[i];
+        if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
+        if (sidebarRoot && typeof sidebarRoot.contains === 'function' && sidebarRoot.contains(el)) continue;
+        const txt = (el.textContent || '').trim();
+        if (txt !== '全局权限' && txt !== 'Global Permissions' && txt !== '权限' && txt !== 'Permissions') continue;
+
+        let sec = el;
+        for (let step = 0; step < 6 && sec && sec.parentElement && sec.parentElement !== root; step++) {
+          const pTxt = sec.parentElement.textContent || '';
+          if (pTxt.indexOf('智能体行为') !== -1 || pTxt.indexOf('Agent Behavior') !== -1 || pTxt.indexOf('执行') !== -1 || pTxt.indexOf('Execution') !== -1 || pTxt.indexOf('语音模式') !== -1 || pTxt.indexOf('Voice mode') !== -1) {
+            return { sectionsContainer: sec.parentElement, permSection: sec };
+          }
+          sec = sec.parentElement;
         }
-        sec = sec.parentElement;
       }
     }
     return null;
   }
 
   function clickGeneralSidebarTab(sidebarRoot) {
+    // 1. 优先使用原生 data-testid 零失误定位
+    const directBtn = (sidebarRoot && sidebarRoot.querySelector && sidebarRoot.querySelector('[data-testid="settings-nav-item-General"]')) ||
+                      (typeof document !== 'undefined' && document.querySelector && document.querySelector('[data-testid="settings-nav-item-General"]'));
+    if (directBtn && typeof directBtn.click === 'function') {
+      directBtn.click();
+      return true;
+    }
+
+    // 2. 文本匹配兜底
     if (!sidebarRoot || typeof sidebarRoot.querySelectorAll !== 'function') return false;
     const items = sidebarRoot.querySelectorAll('button, a, [role="button"], div, span');
     for (let i = 0; i < items.length; i++) {
@@ -1316,10 +1401,62 @@
     }));
 
     if (ds.hasUpdate) {
-      actions1.appendChild(makeActionBtn('前往 GitHub 下载', {
-        bg: pal.primaryBtnBg,
-        borderColor: pal.primaryBtnBg,
-        color: pal.primaryBtnText,
+      if (uiState.downloadStatus === 'downloading') {
+        const progBox = document.createElement('div');
+        progBox.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 10px;background:' + pal.btnBg + ';border-radius:8px;border:1px solid ' + pal.btnBorder + ';';
+        const progText = document.createElement('span');
+        progText.style.cssText = 'font-size:12px;font-weight:500;color:' + pal.text + ';';
+        progText.textContent = '正在下载 ' + uiState.downloadPercent + '%';
+        const track = document.createElement('div');
+        track.style.cssText = 'width:90px;height:6px;border-radius:999px;background:' + pal.divider + ';overflow:hidden;';
+        const bar = document.createElement('div');
+        bar.style.cssText = 'height:100%;border-radius:999px;background:' + pal.accent + ';width:' + uiState.downloadPercent + '%;transition:width 0.2s;';
+        track.appendChild(bar);
+        progBox.appendChild(progText);
+        progBox.appendChild(track);
+        actions1.appendChild(progBox);
+      } else if (uiState.downloadStatus === 'ready') {
+        const restartBtn = makeActionBtn('下载完成 · 立即重启生效', {
+          bg: '#10b981',
+          borderColor: '#10b981',
+          color: '#ffffff',
+          onClick: function() {
+            restartBtn.textContent = '正在重启 Antigravity...';
+            restartBtn.disabled = true;
+            invokeUpdateIpc('zh-localization:apply-and-restart', {
+              isSimulated: Boolean(uiState.simulatedUpdate)
+            });
+          }
+        });
+        actions1.appendChild(restartBtn);
+      } else {
+        const updateBtn = makeActionBtn('一键更新汉化', {
+          bg: pal.primaryBtnBg,
+          borderColor: pal.primaryBtnBg,
+          color: pal.primaryBtnText,
+          onClick: function() {
+            uiState.downloadStatus = 'downloading';
+            uiState.downloadPercent = 0;
+            renderPositionA(findSettingsSidebarAnchor());
+            if (uiState.simulatedUpdate) {
+              invokeUpdateIpc('zh-localization:download-update', { isSimulated: true });
+            } else {
+              invokeUpdateIpc('zh-localization:download-update', {
+                downloadUrl: ds.assetUrl,
+                totalBytes: ds.assetSize,
+                isSimulated: false
+              });
+            }
+            startDownloadPolling();
+          }
+        });
+        actions1.appendChild(updateBtn);
+      }
+
+      actions1.appendChild(makeActionBtn('更新日志', {
+        bg: pal.btnBg,
+        borderColor: pal.btnBorder,
+        color: pal.text,
         onClick: function() {
           const url = ds.htmlUrl || meta.releasesUrl;
           invokeUpdateIpc('zh-localization:open-release', url).then(function(res) {
@@ -1327,25 +1464,6 @@
               window.open(url, '_blank', 'noopener,noreferrer');
             }
           });
-        }
-      }));
-      actions1.appendChild(makeActionBtn(uiState.copied ? '已复制 ✓' : '复制更新命令', {
-        bg: pal.btnBg,
-        borderColor: pal.btnBorder,
-        color: pal.text,
-        onClick: function() {
-          const cmd = 'Antigravity-zh-cn-win-x64.exe install';
-          try {
-            if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(cmd);
-            }
-          } catch (_e) {}
-          uiState.copied = true;
-          renderPositionA(findSettingsSidebarAnchor());
-          setTimeout(function() {
-            uiState.copied = false;
-            renderPositionA(findSettingsSidebarAnchor());
-          }, 1800);
         }
       }));
     }
@@ -1384,64 +1502,54 @@
       const row3 = document.createElement('div');
       row3.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;border-top:1px solid ' + pal.divider + ';';
       const hint3 = document.createElement('div');
-      hint3.textContent = '测试预览专用：点击右侧按钮可就地模拟“发现新版 v2.32.0”提醒态（正式更新需关闭软件后运行更新器）。';
+      hint3.textContent = '本地测试专区：点击右侧按钮可模拟新版、体验应用内下载进度与无感重启流程。';
       hint3.style.cssText = 'font-size:12px;color:' + pal.muted + ';';
       row3.appendChild(hint3);
-      row3.appendChild(makeActionBtn(uiState.simulatedUpdate ? '恢复真实状态' : '模拟新版提醒', {
+
+      const testActions = document.createElement('div');
+      testActions.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+      testActions.appendChild(makeActionBtn(uiState.simulatedUpdate ? '恢复真实状态' : '模拟新版 (v2.32.0)', {
         bg: pal.btnBg,
         borderColor: pal.btnBorder,
         color: pal.text,
         onClick: function() {
           uiState.simulatedUpdate = !uiState.simulatedUpdate;
+          uiState.downloadStatus = 'idle';
+          uiState.downloadPercent = 0;
           renderPositionA(findSettingsSidebarAnchor());
         }
       }));
+
+      testActions.appendChild(makeActionBtn('测试热更新与重启', {
+        bg: pal.primaryBtnBg,
+        borderColor: pal.primaryBtnBg,
+        color: pal.primaryBtnText,
+        onClick: function() {
+          uiState.simulatedUpdate = true;
+          uiState.downloadStatus = 'downloading';
+          uiState.downloadPercent = 0;
+          renderPositionA(findSettingsSidebarAnchor());
+          invokeUpdateIpc('zh-localization:download-update', { isSimulated: true });
+          startDownloadPolling();
+        }
+      }));
+
+      row3.appendChild(testActions);
       card.appendChild(row3);
     }
 
     return card;
   }
 
-  function showFloatingFallbackPopover(pillEl, pal, ds) {
+  function showFloatingFallbackPopover() {
     closeFloatingPopover();
-    const pop = document.createElement('div');
-    pop.id = 'agy-zh-floating-popover';
-    pop.setAttribute(AGY_ZH_GUARD_ATTR, '1');
-    pop.style.cssText = [
-      'position:fixed',
-      'left:24px',
-      'bottom:64px',
-      'width:440px',
-      'max-width:calc(100vw - 48px)',
-      'z-index:2147483000',
-      'background:' + pal.popoverBg,
-      'color:' + pal.text,
-      'border:1px solid ' + pal.border,
-      'border-radius:12px',
-      'padding:12px',
-      'box-shadow:0 10px 30px rgba(0,0,0,0.22)'
-    ].join(';');
-
-    const head = document.createElement('div');
-    head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
-    const title = document.createElement('span');
-    title.textContent = '中文汉化与更新';
-    title.style.cssText = 'font-size:13px;font-weight:600;';
-    head.appendChild(title);
-    head.appendChild(makeActionBtn('关闭', {
-      bg: pal.btnBg,
-      borderColor: pal.btnBorder,
-      color: pal.text,
-      onClick: closeFloatingPopover
-    }));
-    pop.appendChild(head);
-    pop.appendChild(buildCardRows(pal, ds));
-    (document.body || document.documentElement).appendChild(pop);
   }
 
   function renderPositionA(anchors) {
-    if (!anchors || typeof document === 'undefined' || typeof document.createElement !== 'function') return;
-    const dark = detectDarkTheme(anchors.sidebarRoot);
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+    const sidebarEl = anchors ? anchors.sidebarRoot : null;
+    const dark = detectDarkTheme(sidebarEl || document.body);
     const pal = getPalette(dark);
     const ds = getEffectiveDisplayState();
     const sig = [
@@ -1455,101 +1563,114 @@
       dark
     ].join('|');
 
-    // 1. 左侧边栏「提交反馈」上方状态胶囊
+    // 1. 左侧边栏「提交反馈」上方状态胶囊（仅在当前能够定位到侧边栏时注入）
     let pill = document.getElementById('agy-zh-sidebar-pill');
-    const pillFresh = Boolean(pill && anchors.sidebarRoot.contains(pill) && pill.getAttribute('data-agy-zh-sig') === sig);
-    if (!pill || !anchors.sidebarRoot.contains(pill)) {
-      if (pill && pill.parentNode) pill.parentNode.removeChild(pill);
-      pill = document.createElement('button');
-      pill.id = 'agy-zh-sidebar-pill';
-      pill.type = 'button';
-      pill.setAttribute(AGY_ZH_GUARD_ATTR, '1');
-      if (anchors.feedbackRow && anchors.feedbackRow.parentNode) {
-        anchors.feedbackRow.parentNode.insertBefore(pill, anchors.feedbackRow);
-      }
-      pill.addEventListener('click', function() {
-        const curAnchors = findSettingsSidebarAnchor();
-        const existingCard = document.getElementById('agy-zh-settings-card');
-        if (existingCard) {
-          closeFloatingPopover();
-          try { existingCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
-          const oldOutline = existingCard.style.outline;
-          existingCard.style.outline = '2px solid ' + getPalette(detectDarkTheme(existingCard)).accent;
-          existingCard.style.borderRadius = '12px';
-          setTimeout(function() { existingCard.style.outline = oldOutline; }, 1200);
-          return;
+    if (anchors && anchors.sidebarRoot && anchors.feedbackRow) {
+      const pillFresh = Boolean(pill && anchors.sidebarRoot.contains(pill) && pill.getAttribute('data-agy-zh-sig') === sig);
+      if (!pill || !anchors.sidebarRoot.contains(pill)) {
+        if (pill && pill.parentNode) pill.parentNode.removeChild(pill);
+        pill = document.createElement('button');
+        pill.id = 'agy-zh-sidebar-pill';
+        pill.type = 'button';
+        pill.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+        if (anchors.feedbackRow.parentNode) {
+          anchors.feedbackRow.parentNode.insertBefore(pill, anchors.feedbackRow);
         }
-        if (curAnchors && clickGeneralSidebarTab(curAnchors.sidebarRoot)) {
-          setTimeout(function() {
-            const nextAnchors = findSettingsSidebarAnchor();
-            renderPositionA(nextAnchors);
+        pill.addEventListener('click', function() {
+          const existingCard = document.getElementById('agy-zh-settings-card');
+          if (existingCard) {
+            closeFloatingPopover();
+            try { existingCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
+            const oldOutline = existingCard.style.outline;
+            existingCard.style.outline = '2px solid ' + getPalette(detectDarkTheme(existingCard)).accent;
+            existingCard.style.borderRadius = '12px';
+            setTimeout(function() { existingCard.style.outline = oldOutline; }, 1200);
+            return;
+          }
+
+          const curAnchors = findSettingsSidebarAnchor();
+          if (curAnchors && clickGeneralSidebarTab(curAnchors.sidebarRoot)) {
+            let tries = 0;
+            const pollTimer = setInterval(function() {
+              tries++;
+              const nextAnchors = findSettingsSidebarAnchor();
+              renderPositionA(nextAnchors);
+              const mountedCard = document.getElementById('agy-zh-settings-card');
+              if (mountedCard) {
+                clearInterval(pollTimer);
+                closeFloatingPopover();
+                try { mountedCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
+              } else if (tries >= 10) {
+                clearInterval(pollTimer);
+              }
+            }, 60);
+          } else {
+            renderPositionA(curAnchors);
             const mountedCard = document.getElementById('agy-zh-settings-card');
             if (mountedCard) {
               closeFloatingPopover();
               try { mountedCard.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) {}
-            } else if (nextAnchors) {
-              showFloatingFallbackPopover(pill, getPalette(detectDarkTheme(nextAnchors.sidebarRoot)), getEffectiveDisplayState());
             }
-          }, 120);
-        } else {
-          showFloatingFallbackPopover(pill, getPalette(detectDarkTheme(pill)), getEffectiveDisplayState());
-        }
-      });
-    }
+          }
+        });
+      }
 
-    if (!pillFresh) {
-      pill.setAttribute('data-agy-zh-sig', sig);
-      const dotColor = uiState.checking
-        ? pal.warnDot
-        : (ds.mode === 'update' ? pal.accent : (ds.mode === 'mismatch' ? pal.warnDot : (ds.mode === 'latest' ? pal.okDot : pal.idleDot)));
-      const pillBg = ds.mode === 'update' ? pal.accentBg : (ds.mode === 'mismatch' ? pal.warnBg : 'transparent');
-      const pillBorder = ds.mode === 'update' ? pal.accentBorder : (ds.mode === 'mismatch' ? pal.warnBorder : pal.border);
-      const pillTextColor = ds.mode === 'update' ? pal.accent : (ds.mode === 'mismatch' ? pal.warnDot : pal.text);
+      if (!pillFresh) {
+        pill.setAttribute('data-agy-zh-sig', sig);
+        const dotColor = uiState.checking
+          ? pal.warnDot
+          : (ds.mode === 'update' ? pal.accent : (ds.mode === 'mismatch' ? pal.warnDot : (ds.mode === 'latest' ? pal.okDot : pal.idleDot)));
+        const pillBg = ds.mode === 'update' ? pal.accentBg : (ds.mode === 'mismatch' ? pal.warnBg : 'transparent');
+        const pillBorder = ds.mode === 'update' ? pal.accentBorder : (ds.mode === 'mismatch' ? pal.warnBorder : pal.border);
+        const pillTextColor = ds.mode === 'update' ? pal.accent : (ds.mode === 'mismatch' ? pal.warnDot : pal.text);
 
-      pill.style.cssText = [
-        'width:100%',
-        'display:flex',
-        'align-items:center',
-        'justify-content:space-between',
-        'gap:6px',
-        'padding:6px 10px',
-        'margin:0 0 6px 0',
-        'border-radius:8px',
-        'font-size:12px',
-        'line-height:1.3',
-        'cursor:pointer',
-        'box-sizing:border-box',
-        'text-align:left',
-        'border:1px solid ' + pillBorder,
-        'background:' + pillBg,
-        'color:' + pillTextColor
-      ].join(';');
+        pill.style.cssText = [
+          'width:100%',
+          'display:flex',
+          'align-items:center',
+          'justify-content:space-between',
+          'gap:6px',
+          'padding:6px 10px',
+          'margin:0 0 6px 0',
+          'border-radius:8px',
+          'font-size:12px',
+          'line-height:1.3',
+          'cursor:pointer',
+          'box-sizing:border-box',
+          'text-align:left',
+          'border:1px solid ' + pillBorder,
+          'background:' + pillBg,
+          'color:' + pillTextColor
+        ].join(';');
 
-      while (pill.firstChild) pill.removeChild(pill.firstChild);
-      const pillLeft = document.createElement('span');
-      pillLeft.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;flex:1;';
-      const dot = document.createElement('span');
-      dot.style.cssText = 'width:7px;height:7px;border-radius:999px;flex-shrink:0;background:' + dotColor + ';';
-      const labelSpan = document.createElement('span');
-      labelSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;';
-      labelSpan.textContent = uiState.checking
-        ? '检查汉化更新中...'
-        : (ds.mode === 'update'
-          ? ('汉化有新版 ' + (ds.latestTag || ''))
-          : (ds.mode === 'mismatch'
-            ? '客户端已升级 · 需更新汉化'
-            : (ds.mode === 'latest' ? ('汉化 v' + uiState.meta.patchVersion + ' · 最新') : ('汉化 v' + uiState.meta.patchVersion))));
-      pillLeft.appendChild(dot);
-      pillLeft.appendChild(labelSpan);
-      const chev = document.createElement('span');
-      chev.textContent = '›';
-      chev.style.cssText = 'opacity:0.65;flex-shrink:0;';
-      pill.appendChild(pillLeft);
-      pill.appendChild(chev);
+        while (pill.firstChild) pill.removeChild(pill.firstChild);
+        const pillLeft = document.createElement('span');
+        pillLeft.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;flex:1;';
+        const dot = document.createElement('span');
+        dot.style.cssText = 'width:7px;height:7px;border-radius:999px;flex-shrink:0;background:' + dotColor + ';';
+        const labelSpan = document.createElement('span');
+        labelSpan.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;';
+        labelSpan.textContent = uiState.checking
+          ? '检查汉化更新中...'
+          : (ds.mode === 'update'
+            ? ('汉化有新版 ' + (ds.latestTag || ''))
+            : (ds.mode === 'mismatch'
+              ? '客户端已升级 · 需更新汉化'
+              : (ds.mode === 'latest' ? ('汉化 v' + uiState.meta.patchVersion + ' · 最新') : ('汉化 v' + uiState.meta.patchVersion))));
+        pillLeft.appendChild(dot);
+        pillLeft.appendChild(labelSpan);
+        const chev = document.createElement('span');
+        chev.textContent = '›';
+        chev.style.cssText = 'opacity:0.65;flex-shrink:0;';
+        pill.appendChild(pillLeft);
+        pill.appendChild(chev);
+      }
     }
 
     // 2. 右侧「通用」内容区汉化状态卡片
-    const genAnchor = findGeneralSectionsAnchor(anchors.dialogRoot, anchors.sidebarRoot);
+    const dialogRoot = anchors ? anchors.dialogRoot : null;
+    const sidebarRoot = anchors ? anchors.sidebarRoot : null;
+    const genAnchor = findGeneralSectionsAnchor(dialogRoot, sidebarRoot);
     if (genAnchor && genAnchor.sectionsContainer) {
       let section = document.getElementById('agy-zh-settings-card');
       const cardFresh = Boolean(section && section.parentNode === genAnchor.sectionsContainer && section.getAttribute('data-agy-zh-sig') === sig);
@@ -1599,7 +1720,94 @@
     }, 90);
   }
 
+  let officialToastHooked = false;
+  let officialToastHideTimer = null;
+
+  function renderOfficialUpdateToast(payload) {
+    if (typeof document === 'undefined' || !document.body) return;
+    const phase = payload && payload.phase ? String(payload.phase) : '';
+    if (!phase) return;
+    let toast = document.getElementById('agy-zh-official-update-toast');
+    if (officialToastHideTimer) {
+      clearTimeout(officialToastHideTimer);
+      officialToastHideTimer = null;
+    }
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'agy-zh-official-update-toast';
+      toast.setAttribute(AGY_ZH_GUARD_ATTR, '1');
+      document.body.appendChild(toast);
+    }
+    const dark = detectDarkTheme(document.body);
+    const pal = getThemePalette(dark);
+    toast.style.cssText = [
+      'position:fixed',
+      'right:18px',
+      'bottom:18px',
+      'z-index:2147483000',
+      'max-width:340px',
+      'padding:10px 14px',
+      'border-radius:10px',
+      'font-size:12px',
+      'line-height:1.45',
+      'box-shadow:0 8px 24px rgba(0,0,0,0.22)',
+      'display:flex',
+      'align-items:center',
+      'gap:8px',
+      'border:1px solid ' + (phase === 'error' ? pal.dangerBorder : pal.border),
+      'background:' + pal.surface,
+      'color:' + pal.text
+    ].join(';');
+    const verTxt = payload && payload.detail ? (' v' + String(payload.detail).replace(/^v/i, '')) : '';
+    const pct = Math.max(0, Math.min(100, Number((payload && payload.percent) || 0)));
+    let msg = '';
+    if (phase === 'downloading') {
+      msg = pct > 0
+        ? ('正在下载官方新版' + verTxt + '（' + pct + '%），完成后将自动安装重启...')
+        : ('正在连接官方更新服务器下载新版' + verTxt + '...');
+    } else if (phase === 'ready') {
+      msg = '官方新版' + verTxt + ' 已下载完成，正在拉起安装并重启...';
+    } else if (phase === 'error') {
+      msg = '官方更新下载失败：' + String((payload && payload.detail) || '请稍后重试');
+      toast.style.color = pal.dangerText;
+    } else {
+      msg = String(payload.detail || '');
+    }
+    while (toast.firstChild) toast.removeChild(toast.firstChild);
+    const span = document.createElement('span');
+    span.style.cssText = 'flex:1;';
+    span.textContent = msg;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = 'border:none;background:transparent;color:' + pal.muted + ';cursor:pointer;font-size:15px;padding:0 2px;line-height:1;';
+    closeBtn.onclick = function() {
+      if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+    };
+    toast.appendChild(span);
+    toast.appendChild(closeBtn);
+    if (phase === 'ready' || phase === 'error') {
+      officialToastHideTimer = setTimeout(function() {
+        const cur = document.getElementById('agy-zh-official-update-toast');
+        if (cur && cur.parentNode) cur.parentNode.removeChild(cur);
+      }, 9000);
+    }
+  }
+
+  function hookOfficialUpdateToast() {
+    if (officialToastHooked) return;
+    const ipc = getIpcRenderer();
+    if (!ipc || typeof ipc.on !== 'function') return;
+    officialToastHooked = true;
+    try {
+      ipc.on('zh-localization:official-update-status', function(_ev, payload) {
+        renderOfficialUpdateToast(payload);
+      });
+    } catch (_e) {}
+  }
+
   function syncUpdateMetaAndAutoCheck() {
+    hookOfficialUpdateToast();
     if (!bootMetaDone) {
       bootMetaDone = true;
       invokeUpdateIpc('zh-localization:get-meta').then(function(meta) {

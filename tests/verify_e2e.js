@@ -16,7 +16,9 @@ function parseDistDirArg(argv) {
   return null;
 }
 
-const distDir = parseDistDirArg(process.argv.slice(2));
+const cliArgs = process.argv.slice(2);
+const distDir = parseDistDirArg(cliArgs);
+const blockAutoUpdate = cliArgs.includes('--block-auto-update');
 
 // 1. Validate dictionary integrity & zero private contamination
 const dict = JSON.parse(fs.readFileSync(DICT_PATH, 'utf8'));
@@ -716,11 +718,14 @@ checkEq('voiceMicErrSplit', voiceMicErrTip.children[0].textContent, '麦克风�
 
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
+  const updaterExpectations = blockAutoUpdate
+    ? ['autoInstallOnAppQuit = false;', 'autoDownload = false;']
+    : ['autoInstallOnAppQuit = electron_1.app.isPackaged;', 'autoDownload = true;'];
   const moduleAssertions = {
     'menu.js': ["'Connect to WSL': '连接到 WSL'", "'Reopen Locally': '在本地重新打开'", 'menuTranslationMap[submenuLabel]', 'translateMenu'],
     'tray.js': ['无运行中的 Agent', '打开 Antigravity', '连接到 WSL', '在本地重新打开'],
-    'updater.js': ['autoInstallOnAppQuit = false;', 'autoDownload = false;', 'Starting download...', 'MenuUpdateStep["CheckForUpdates"] = "检查更新";', "message: '当前已是最新版本'"],
-    'ipcHandlers.js': ['translateContextMenuLabel', '删除会话', '无法打开文件夹', '文件夹位于 Windows 文件系统中', '选择下载文件夹', '打开工作区', 'zh-localization:get-meta', 'zh-localization:check-update', 'zh-localization:open-release'],
+    'updater.js': [...updaterExpectations, '__agyZhApplyOnDownload', 'Starting download...', 'MenuUpdateStep["CheckForUpdates"] = "检查更新";', "message: '当前已是最新版本'"],
+    'ipcHandlers.js': ['translateContextMenuLabel', 'applyHostUpdate', '删除会话', '无法打开文件夹', '文件夹位于 Windows 文件系统中', '选择下载文件夹', '打开工作区', 'zh-localization:get-meta', 'zh-localization:check-update', 'zh-localization:open-release'],
     'webauthn.js': ["title: '选择通行密钥 (Passkey)'", '请选择用于继续操作的通行密钥账户：', "buttons: [...accountLabels, '取消']"],
     'cablev2.js': ['<title>通行密钥 (Passkeys)</title>', '正在连接至您的设备…'],
     'main.js': ["showErrorBox('未找到核心程序'", "title: '未找到 WSL 发行版'", "title: '确认退出'", "buttons: ['取消', '退出']"],

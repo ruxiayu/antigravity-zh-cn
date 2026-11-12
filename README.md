@@ -18,7 +18,7 @@
     - `dist/menu.js`：系统顶部原生应用菜单（文件/编辑/视图/窗口/帮助及动态 WSL 子菜单）。
     - `dist/ipcHandlers.js`：会话与消息原生右键上下文菜单及原生弹窗对话框。
     - `dist/tray.js`：系统任务栏托盘菜单及运行中的 Agent 实时计数。
-    - `dist/updater.js`：检查更新提示与可选的后台静默更新拦截（默认启用防止官方英文覆盖，可通过 `--keep-auto-update` 关闭）。
+    - `dist/updater.js`：检查更新提示与官方升级直连修复（默认保留官方更新并确保右上角「更新可用」可直接点击下载升级；也可通过 `--block-auto-update` 禁止后台静默下载、仅点击后手动拉取安装）。
     - `dist/webauthn.js` / `dist/cablev2.js`：Passkey 通行密钥二维码扫码与跨端设备握手提示。
     - `dist/ideInstall/wizardHtml.js` 等安装向导与辅助弹窗模块（`main.js`、`deviceChooser.js`、`provisionSplash.js`、`webviewPopupSecurity.js`、`wsl.js`）。
 - **安全可逆与零外部运行依赖**
@@ -37,7 +37,7 @@ Antigravity 基于 VS Code + 独立 Electron 界面架构，要实现全界面�
 
 - **免环境单文件版用户**：无需安装 Python 或 Node.js，直接运行独立可执行文件即可。
 - **源码运行用户**：**Python 3.8+**；可选 **Node.js 18+**（仅用于执行 `node --check` 语法复检与运行 `npm test` 端到端测试）。
-- **目标软件**：已安装官方 Antigravity（当前词典与锚点基于 **Antigravity v2.31.0** 验证，向下/向新版本可借助内置兼容逻辑或 `build` 命令测试适配）
+- **目标软件**：已安装官方 Antigravity（自适应锚点与词库已实测兼容 **v2.28.2 ~ v2.31.2**，升级新版后可重新一键重注或用 `build` 命令测试）
 
 ## 快速开始
 
@@ -61,11 +61,11 @@ python src/localize.py status
 # 检查 GitHub 是否有新版汉化发布
 python src/localize.py check-update
 
-# 一键备份原版并注入深度汉化（默认禁用官方后台静默覆盖）
+# 一键备份原版并注入深度汉化（默认全版本自适应 + 保留官方右上角「更新可用」升级能力）
 python src/localize.py install
 
-# 若希望保留官方后台自动下载/更新，可附加 --keep-auto-update
-python src/localize.py install --keep-auto-update
+# 若希望禁止官方后台自动下载、仅在点击右上角「更新可用」后再下载安装，可附加 --block-auto-update
+python src/localize.py install --block-auto-update
 
 # 恢复官方原版 app.asar（从 app.asar.original.bak 还原）
 python src/localize.py restore

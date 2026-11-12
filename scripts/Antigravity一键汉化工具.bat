@@ -16,8 +16,8 @@ echo ========================================================================
 echo.
 echo   工作目录: %ROOT_DIR%
 echo.
-echo   [1] 注入深度汉化（推荐：含防官方后台静默升级覆盖）
-echo   [2] 注入深度汉化（保留官方自动更新）
+echo   [1] 注入深度汉化（推荐：全版本自适应 + 支持右上角「更新可用」直接升级）
+echo   [2] 注入深度汉化（仅手动确认后下载官方更新 · 点右上角再下载安装）
 echo   [3] 恢复官方原版（从 app.asar.original.bak 无损还原）
 echo   [4] 查看当前 Antigravity 安装与汉化状态
 echo   [5] 运行本地汉化引擎自检测试 (Node E2E)
@@ -104,11 +104,11 @@ echo [已启动] %AGY_EXE%
 goto :EOF
 
 :ACTION_INSTALL_BLOCK
-set "INSTALL_FLAGS="
+set "INSTALL_FLAGS=--keep-auto-update"
 goto :DO_INSTALL
 
 :ACTION_INSTALL_KEEP
-set "INSTALL_FLAGS=--keep-auto-update"
+set "INSTALL_FLAGS=--block-auto-update"
 goto :DO_INSTALL
 
 :DO_INSTALL
