@@ -6,7 +6,7 @@
 
 ---
 
-## 快速开始（3 步完成）
+## 快速开始（2 步完成）
 
 ### 第 1 步：下载汉化工具
 
@@ -28,14 +28,6 @@
   ```
 
 > 💡 如果你的 Antigravity 安装在 `C:\Program Files\` 或 `/opt/` 等系统目录，Windows 请**右键以管理员身份运行**，macOS / Linux 请在命令前加 `sudo`。
-
-### 第 3 步：安装官方基础中文语言包（推荐）
-
-为了把编辑器顶部菜单和基础设置也变成中文，请在 Antigravity 左侧 **扩展（Extensions）** 中搜索并安装微软官方插件：
-
-**`Chinese (Simplified) (简体中文) Language Pack for Visual Studio Code`**
-
-安装后按提示切换语言并重启，即可获得完整的全中文界面。
 
 ---
 

@@ -6,7 +6,7 @@
 
 ---
 
-## Quick Start (3 Steps)
+## Quick Start (2 Steps)
 
 ### 1. Download the Patcher
 
@@ -28,14 +28,6 @@ Download the binary for your OS from [**GitHub Releases**](../../releases):
   ```
 
 > 💡 If Antigravity is installed in a system-protected folder (e.g. `C:\Program Files\` or `/opt/`), run as Administrator on Windows or prefix with `sudo` on macOS/Linux.
-
-### 3. Install Microsoft's Base Chinese Pack (Recommended)
-
-Open **Extensions** inside Antigravity, search for and install:
-
-**`Chinese (Simplified) (简体中文) Language Pack for Visual Studio Code`**
-
-Switch the display language when prompted and restart to localize the base VS Code menus as well.
 
 ---
 
