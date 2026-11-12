@@ -1,171 +1,122 @@
-# Antigravity 深度中文汉化工具 (`antigravity-zh-cn`)
+# Antigravity 一键中文汉化工具 (`antigravity-zh-cn`)
 
 **简体中文** | [English](README_EN.md)
 
-> 专为 **Antigravity Desktop / Antigravity IDE** 打造的 **Antigravity 汉化**开源工具（**Antigravity汉化** / 简体中文补丁包），内置 **6,658 条全量 UI 词典** 与 **前端动态 DOM / 主进程双层汉化引擎**，支持一键备份、自动检测安装目录、安全重装及无损还原。
+> 专为 **Antigravity** 打造的免费开源中文汉化工具。**无需配置 Python 或其他环境**，下载后双击即可一键汉化（实测兼容 `v2.28.2 ~ v2.31.2`），汉化前自动备份原文件，随时可无损还原为官方英文版。
 
-## 核心特性
+---
 
-- **开箱即用，自动探测安装路径**
-  - **Windows**：自动读取卸载注册表 (`InstallLocation`) 及常见安装路径（`%LOCALAPPDATA%\Programs\antigravity`、`Program Files\Antigravity`）。
-  - **macOS / Linux**：自动探测 `/Applications/Antigravity.app`、`/opt/Antigravity`、`/usr/share/antigravity` 等常见目录，也支持 `--app-dir` / `--asar` 手动指定。
-- **双层深度汉化覆盖（主进程 + 渲染进程）**
-  - **前端动态 DOM 引擎 (`src/engine_preload.js`)**：
-    - `MutationObserver` + Shadow DOM 穿透监听，支持弹窗 (`dialog` / `alertdialog`)、悬浮提示 (`tooltip` / `popover`)、设置面板、模型选择卡片与用量面板。
-    - 智能动态规则：跨 DOM 节点剩余额度重组（如 `77% left` → `77% 剩余`）、限额与倒计时格式转换（`5h limit` → `5小时限额`、`Resets in 2d 17h` → `2天17小时后重置`）、动态模型组 Tooltip 拼接及语音/通知设置本地化。
-    - 词典覆盖 **6,658 条**官方界面词条（持续维护）。
-  - **Electron 主进程原生模块 (`src/patches_main.py`)**：
-    - `dist/menu.js`：系统顶部原生应用菜单（文件/编辑/视图/窗口/帮助及动态 WSL 子菜单）。
-    - `dist/ipcHandlers.js`：会话与消息原生右键上下文菜单及原生弹窗对话框。
-    - `dist/tray.js`：系统任务栏托盘菜单及运行中的 Agent 实时计数。
-    - `dist/updater.js`：检查更新提示与官方升级直连修复（默认保留官方更新并确保右上角「更新可用」可直接点击下载升级；也可通过 `--block-auto-update` 禁止后台静默下载、仅点击后手动拉取安装）。
-    - `dist/webauthn.js` / `dist/cablev2.js`：Passkey 通行密钥二维码扫码与跨端设备握手提示。
-    - `dist/ideInstall/wizardHtml.js` 等安装向导与辅助弹窗模块（`main.js`、`deviceChooser.js`、`provisionSplash.js`、`webviewPopupSecurity.js`、`wsl.js`）。
-- **安全可逆与零外部运行依赖**
-  - 首次注入前自动备份原始文件为 `app.asar.original.bak`，支持一键 `restore` 无损回滚至官方原版。
-  - 内置纯 Python Electron ASAR 解包/打包编解码器（`src/asar_codec.py`，支持 SHA-256 块完整性校验），普通用户**无需安装 Node.js / `@electron/asar`**；当本机存在 `node` 时自动触发 `node --check` 语法复检，并始终校验 `unpacked` 文件数量一致。
-  - 本仓库**不包含**任何 Antigravity 官方二进制、安装包、修改后的 `app.asar` 及任何个人数据。
+## 快速开始（3 步完成）
 
-## 双层完整汉化说明
+### 第 1 步：下载汉化工具
 
-Antigravity 基于 VS Code + 独立 Electron 界面架构，要实现全界面无死角中文，推荐配合使用以下两层：
+前往 [**GitHub Releases**](../../releases) 下载对应系统的程序：
 
-1. **基础层（VS Code 框架与编辑器菜单）**：在 Antigravity 扩展商店搜索并安装微软官方插件 **`Chinese (Simplified) (简体中文) Language Pack for Visual Studio Code`**，按提示切换显示语言并重启。
-2. **内核层（Antigravity 专属交互与原生主进程）**：使用本项目一键注入 `resources/app.asar` 汉化补丁，解决官方语言包无法覆盖的智能体对话流、模型配额卡、原生右键菜单、托盘菜单、设置面板及登录/密钥弹窗。
+- **Windows**：下载 `Antigravity-zh-cn-win-x64.exe`
+- **macOS (Apple Silicon)**：下载 `antigravity-zh-cn-macos-arm64`
+- **Linux (x64)**：下载 `antigravity-zh-cn-linux-x64`
 
-## 环境要求
+### 第 2 步：关闭客户端并一键汉化
 
-- **免环境单文件版用户**：无需安装 Python 或 Node.js，直接运行独立可执行文件即可。
-- **源码运行用户**：**Python 3.8+**；可选 **Node.js 18+**（仅用于执行 `node --check` 语法复检与运行 `npm test` 端到端测试）。
-- **目标软件**：已安装官方 Antigravity（自适应锚点与词库已实测兼容 **v2.28.2 ~ v2.31.2**，升级新版后可重新一键重注或用 `build` 命令测试）
+**请先完全退出 Antigravity**（避免程序文件被占用），然后运行工具：
 
-## 快速开始
+- **Windows 用户**：双击 `Antigravity-zh-cn-win-x64.exe`，输入 **`1`** 并按回车，等待几秒自动完成。
+- **macOS / Linux 用户**：在终端中执行（以 macOS 为例，Linux 请替换文件名）：
+  ```bash
+  chmod +x antigravity-zh-cn-macos-arm64
+  ./antigravity-zh-cn-macos-arm64 install
+  ```
 
-### 方式一：免环境单文件工具（推荐普通用户）
+> 💡 如果你的 Antigravity 安装在 `C:\Program Files\` 或 `/opt/` 等系统目录，Windows 请**右键以管理员身份运行**，macOS / Linux 请在命令前加 `sudo`。
 
-1. 从本项目的 [GitHub Releases](../../releases) 下载对应系统的单文件程序（Windows 下载 `Antigravity-zh-cn-win-x64.exe`），或在本机运行 `python scripts/build_standalone.py` 自行打包。
-2. 双击运行单文件程序，在交互菜单中输入 **`1`** 并按回车，即可自动关闭 Antigravity、备份原版 `app.asar` 并完成注入。
+### 第 3 步：安装官方基础中文语言包（推荐）
 
-### 方式二：Windows 源码一键交互脚本
+为了把编辑器顶部菜单和基础设置也变成中文，请在 Antigravity 左侧 **扩展（Extensions）** 中搜索并安装微软官方插件：
 
-1. 下载或克隆本仓库到本地目录。
-2. 双击运行 [`scripts/Antigravity一键汉化工具.bat`](scripts/Antigravity一键汉化工具.bat)。
-3. 在交互菜单中选择 **`[1]` 注入深度汉化**。
+**`Chinese (Simplified) (简体中文) Language Pack for Visual Studio Code`**
 
-### 方式三：跨平台命令行 CLI（Windows / macOS / Linux）
+安装后按提示切换语言并重启，即可获得完整的全中文界面。
 
-```bash
-# 查看当前安装检测与汉化状态
-python src/localize.py status
+---
 
-# 检查 GitHub 是否有新版汉化发布
-python src/localize.py check-update
+## 更新与还原
 
-# 一键备份原版并注入深度汉化（默认全版本自适应 + 保留官方右上角「更新可用」升级能力）
-python src/localize.py install
+- **还原为官方英文原版**：关闭 Antigravity 后运行工具，输入 **`3`** 回车（命令行运行 `restore`）即可无损恢复。
+- **官方升级后变回英文了怎么办？**：Antigravity 官方更新会覆盖内置界面文件，关闭软件后重新运行本工具选 **`1`** 即可恢复中文，不会影响原有设置和对话记录。
+- **如何检查汉化新版？**：汉化后打开 Antigravity **设置（`Ctrl + ,`）→ 通用** 页面最底部，即可看到「**中文汉化与更新**」卡片，支持应用内一键检查与更新（也可在工具菜单选 **`5`** 检查）。
 
-# 若希望禁止官方后台自动下载、仅在点击右上角「更新可用」后再下载安装，可附加 --block-auto-update
-python src/localize.py install --block-auto-update
-
-# 恢复官方原版 app.asar（从 app.asar.original.bak 还原）
-python src/localize.py restore
-
-# 指定自定义安装目录或 app.asar 路径
-python src/localize.py install --app-dir "/path/to/Antigravity"
-python src/localize.py install --asar "/path/to/resources/app.asar"
-```
-
-macOS / Linux 也可使用包装脚本 [`scripts/localize.sh`](scripts/localize.sh)：
-
-```bash
-chmod +x scripts/localize.sh
-./scripts/localize.sh status
-./scripts/localize.sh check-update
-./scripts/localize.sh install
-./scripts/localize.sh restore
-```
-
-## 如何接收与更新新版汉化（新手图文指南）
-
-当 Antigravity 客户端升级到新版本，或本仓库同步发布了新版汉化补丁时，你可以通过以下方式第一时间收到提示并完成无损更新：
+<details>
+<summary>点击查看：设置里的「中文汉化与更新」入口位置示意图</summary>
 
 ![Antigravity 中文汉化更新界面位置与新手升级指南](docs/images/update-ui-guide.png)
 
-1. **在 Antigravity 客户端设置里直接查看（推荐）**：
-   - 打开 Antigravity **设置**（点击左下角齿轮图标或按快捷键 `Ctrl + ,`）。
-   - **左侧边栏底部（`提交反馈` 正上方）**：可直接看到汉化状态胶囊；点击它会自动定位到 **`通用` 设置页底部的「中文汉化与更新」卡片**（若你在其他设置页，也会自动切回 `通用`）。
-   - 默认每天最多向 GitHub Releases API 发送 1 次**严格只读**检查请求（不上传任何本机数据），你也可以在卡片开关中随时关闭。
-2. **在独立工具或终端里检查更新**：
-   - 双击 `Antigravity-zh-cn-win-x64.exe` 选择 **`[5] 检查 GitHub 最新汉化包更新`**；源码用户可在批处理菜单选 **`[6]`** 或运行 `python src/localize.py check-update`。
-   - 也欢迎在本仓库右上角点击 **Watch → Custom → 勾选 Releases** 订阅发版邮件通知。
-3. **下载后 3 步完成覆盖更新**：
-   - 点击卡片中的 **「前往 GitHub 下载」**（Windows 下载最新 `Antigravity-zh-cn-win-x64.exe`）。
-   - **先完全关闭 Antigravity 客户端**（Windows 下程序运行期间会锁定 `app.asar`，因此客户端内只能提醒与跳转下载，无法直接自替换）。
-   - 双击新版工具输入 **`1`** 回车，即可自动重新备份新版原包并覆盖完成汉化升级；随时可输入 **`3`** 无损还原官方原版。
+</details>
 
-### 离线构建模式（开发者 / 版本适配调试）
+---
 
-如需对指定 `app.asar` 做离线测试打包而不改动当前本机安装：
+## 常见问题
+
+- **安全吗？会上传数据或影响账号吗？**
+  工具仅在本地修改界面显示文本，**不修改任何账号逻辑，也不上传任何本机数据**（设置页的更新检查默认每天仅向 GitHub 请求一次最新版本号，可在开关中随时关闭）。
+- **工具菜单里选项 `[1]` 和 `[2]` 有什么区别？**
+  选 **`[1]`（推荐）** 会正常保留 Antigravity 右上角的官方「更新可用」一键升级功能；选 **`[2]`** 则禁止后台自动下载官方更新，仅在你主动点击后才下载。
+
+---
+
+<details>
+<summary>开发者与命令行高级用法（普通用户可忽略）</summary>
+
+### 1. 环境要求与源码运行
+
+- **环境要求**：Python 3.8+（免安装单文件版无需 Python）；可选 Node.js 18+（仅用于 `node --check` 语法复检与运行测试）。
+- **Windows 一键批处理**：下载仓库后双击 [`scripts/Antigravity一键汉化工具.bat`](scripts/Antigravity一键汉化工具.bat)。
+- **macOS / Linux 脚本**：运行 `chmod +x scripts/localize.sh && ./scripts/localize.sh install`。
+
+### 2. 常用命令行参数 (`src/localize.py`)
 
 ```bash
-python src/localize.py build \
-  --input-asar "/path/to/vanilla/app.asar" \
-  --output-asar "/path/to/output/app.asar"
+python src/localize.py status                      # 查看当前安装检测与汉化状态
+python src/localize.py check-update                # 检查 GitHub 是否有新版汉化发布
+python src/localize.py install                     # 备份原版并注入深度汉化（保留官方更新通道）
+python src/localize.py install --block-auto-update # 注入汉化并禁止后台静默下载官方更新
+python src/localize.py restore                     # 从 app.asar.original.bak 无损还原官方原版
+python src/localize.py install --app-dir "/path/to/Antigravity"  # 指定安装目录
+python src/localize.py install --asar "/path/to/resources/app.asar" # 直接指定 app.asar
 ```
 
-> 提示：若源 `app.asar` 包含 `unpacked` 扩展目录（如 `node_modules/chrome-devtools-mcp`），请确保其同级目录下存在 `.unpacked` 文件夹（如 `app.asar.unpacked`）。
-
-## 自动化自检测试
-
-仓库内置基于纯 Node.js DOM 沙箱的端到端测试套件（无需真实浏览器或外部 npm 测试依赖）：
+### 3. 离线打包与自动化测试
 
 ```bash
+# 对指定 app.asar 离线打包（不改动本机安装；若含 unpacked 目录请保证同级存在 .unpacked）
+python src/localize.py build --input-asar "/path/to/vanilla/app.asar" --output-asar "/path/to/output/app.asar"
+
+# 运行纯 Node.js DOM 沙箱端到端测试（Node.js 18+）
 npm test
-# 或
-node tests/verify_e2e.js
-```
-
-如需同时校验解包后的主进程模块运行时行为，可附加 `--dist-dir` 参数：
-
-```bash
+# 可选：同时校验解包后的 dist/ 主进程模块
 node tests/verify_e2e.js --dist-dir "/path/to/extracted/dist"
 ```
 
-## 目录结构
+### 4. 核心实现与目录结构
+
+- 内置 **6,658 条** UI 词典（`dict/master_merged_dict.json`），覆盖前端动态 DOM / Shadow DOM（`src/engine_preload.js`）与 Electron 主进程菜单、托盘、右键菜单、更新器及 Passkey 提示（`src/patches_main.py`）。
+- 内置纯 Python ASAR 编解码器（`src/asar_codec.py`），支持 SHA-256 完整性校验，普通用户无需安装 Node.js。
 
 ```text
-.
-├── .github/
-│   ├── ISSUE_TEMPLATE/                   # 漏翻反馈与新版适配 Issue 模板
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/                        # GitHub Actions CI 测试与多平台 Release 打包
-├── dict/master_merged_dict.json          # 主界面翻译词典（纯静态通用 UI 词条）
-├── docs/images/update-ui-guide.png       # 汉化更新入口与新手升级步骤图解
-├── scripts/
-│   ├── Antigravity一键汉化工具.bat        # Windows 一键交互式汉化与还原脚本
-│   ├── build_standalone.py               # PyInstaller 单文件零依赖构建脚本
-│   └── localize.sh                       # macOS / Linux Shell 入口脚本
-├── src/
-│   ├── asar_codec.py                     # 纯 Python ASAR 编解码引擎（零 Node 依赖）
-│   ├── engine_preload.js                 # 前端动态 DOM / 正则 / Shadow DOM 引擎
-│   ├── patches_main.py                   # 主进程模块自动化补丁器
-│   └── localize.py                       # 跨平台安装检测、交互菜单、构建与还原 CLI
-├── tests/
-│   ├── test_asar_codec.py                # ASAR 编解码单元测试
-│   └── verify_e2e.js                     # DOM 引擎 + 主进程模块 E2E 自检脚本
-├── CONTRIBUTING.md                       # 贡献与词典提交流程说明
-├── LICENSE                               # MIT 开源许可证
-├── package.json
-├── README.md                             # 中文说明文档
-└── README_EN.md                          # English Documentation
+├── dict/master_merged_dict.json          # 主界面翻译词典
+├── docs/images/update-ui-guide.png       # 汉化更新入口示意图
+├── scripts/                              # Windows 批处理、Shell 入口与单文件打包脚本
+├── src/                                  # 核心引擎（localize.py / asar_codec.py / patches_main.py / engine_preload.js）
+├── tests/                                # 单元测试与 E2E 自检脚本
+├── CONTRIBUTING.md                       # 贡献与词典提交流程
+└── LICENSE                               # MIT 开源许可证
 ```
 
-## 注意事项与免责声明
+</details>
 
-1. **版本升级**：每当 Antigravity 发布大版本更新，如果你希望同步汉化新版 UI，建议先备份当前设置，等待本仓库更新对应版本适配词典，再重新执行 `install`。
-2. **校验与权限**：若安装路径位于系统受保护目录（例如 `C:\Program Files\` 或 `/opt/`），请以管理员权限或 `sudo` 运行注入/还原命令。
-3. **免责声明**：本项目仅提供本地 UI 资源汉化与学习交流用途，与 Google / Antigravity 官方无任何从属或合作关系。请通过官方渠道获取正版 Antigravity 客户端，本仓库绝不分发任何官方专有程序或安装包。
+---
 
-## 开源协议
+## 免责声明与开源协议
 
-本项目基于 [MIT License](LICENSE) 开源。欢迎通过 Issue 与 Pull Request 补充漏翻界面截图或优化词条。
+本项目仅提供本地 UI 汉化脚本与词典，与 Google / Antigravity 官方无任何从属关系；仓库内不包含任何官方程序或安装包，请从官方渠道获取正版客户端。
+
+基于 [MIT License](LICENSE) 开源，欢迎通过 Issue / PR 补充漏翻截图或优化词条。
