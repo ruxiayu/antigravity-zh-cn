@@ -253,6 +253,55 @@
       }
     }
 
+    // 4.5.1 会话与历史记录相对时间动态匹配 (Relative Time & Timestamps)
+    // A. 紧凑单字缩写：如 "6h", "9h", "1d", "3d", "4d", "5d", "20h", "15m", "2w", "3mo", "1y", "· 6h"
+    const relCompactMatch = /^([\u00b7\u2022\u22c5\u2027\s]*)([0-9]+)\s*(m|h|d|w|mo|y)$/i.exec(trimmed);
+    if (relCompactMatch) {
+      const lead = relCompactMatch[1];
+      const num = relCompactMatch[2];
+      const u = relCompactMatch[3].toLowerCase();
+      const unitMap = {
+        m: '分钟前',
+        h: '小时前',
+        d: '天前',
+        w: '周前',
+        mo: '个月前',
+        y: '年前'
+      };
+      if (unitMap[u]) {
+        return replaceTrimmed(str, trimmed, lead + num + unitMap[u]);
+      }
+    }
+
+    // B. 完整英文相对时间 (含 ago)：如 "9 days ago", "12 hours ago", "just now", "yesterday"
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)just\s+now$/i.test(normTrimmed)) {
+      return normTrimmed.replace(/just\s+now$/i, '刚刚');
+    }
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)yesterday$/i.test(normTrimmed)) {
+      return normTrimmed.replace(/yesterday$/i, '昨天');
+    }
+    const relAgoMatch = /^([\u00b7\u2022\u22c5\u2027\s]*)([0-9]+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|mos?|years?|yrs?)\s+ago$/i.exec(normTrimmed);
+    if (relAgoMatch) {
+      const lead = relAgoMatch[1];
+      const num = relAgoMatch[2];
+      const uRaw = relAgoMatch[3].toLowerCase();
+      let uCn = '前';
+      if (/^sec/i.test(uRaw)) uCn = '秒前';
+      else if (/^min/i.test(uRaw)) uCn = '分钟前';
+      else if (/^h/i.test(uRaw)) uCn = '小时前';
+      else if (/^d/i.test(uRaw)) uCn = '天前';
+      else if (/^w/i.test(uRaw)) uCn = '周前';
+      else if (/^mo/i.test(uRaw)) uCn = '个月前';
+      else if (/^y/i.test(uRaw)) uCn = '年前';
+      return replaceTrimmed(str, trimmed, lead + num + uCn);
+    }
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)an?\s+hour\s+ago$/i.test(normTrimmed)) return normTrimmed.replace(/an?\s+hour\s+ago$/i, '1小时前');
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)a\s+day\s+ago$/i.test(normTrimmed)) return normTrimmed.replace(/a\s+day\s+ago$/i, '1天前');
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)a\s+week\s+ago$/i.test(normTrimmed)) return normTrimmed.replace(/a\s+week\s+ago$/i, '1周前');
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)a\s+month\s+ago$/i.test(normTrimmed)) return normTrimmed.replace(/a\s+month\s+ago$/i, '1个月前');
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)a\s+year\s+ago$/i.test(normTrimmed)) return normTrimmed.replace(/a\s+year\s+ago$/i, '1年前');
+    if (/^([\u00b7\u2022\u22c5\u2027\s]*)a\s+minute\s+ago$/i.test(normTrimmed)) return normTrimmed.replace(/a\s+minute\s+ago$/i, '1分钟前');
+
     // 4.6 危险操作与删除确认弹窗动态正则流
     if ((m = /^Are you sure you want to delete (?:this )?conversation\?(?:\s*(This action cannot be undone\.?))?$/i.exec(normTrimmed))) {
       return replaceTrimmed(str, trimmed, m[1] ? '您确定要删除此对话吗？此操作无法撤销。' : '您确定要删除此对话吗？');

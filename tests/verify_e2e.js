@@ -411,6 +411,20 @@ addCase('guardPlainDoc', el('div', {}, [el('a', { href: '/docs' }, ['documentati
 addCase('guardUnknownWord', el('p', {}, ['Unknown']));
 addCase('guardUiBlock', el('div', { 'data-agy-zh-guard': '1' }, [el('button', {}, ['Give Feedback'])]));
 
+// Relative Time & Conversation Timestamps
+addCase('time6h', el('span', {}, ['6h']));
+addCase('time9h', el('span', {}, ['9h']));
+addCase('time1d', el('span', {}, ['1d']));
+addCase('time3d', el('span', {}, ['3d']));
+addCase('time4d', el('span', {}, ['4d']));
+addCase('time5d', el('span', {}, ['5d']));
+addCase('time20h', el('span', {}, ['20h']));
+addCase('time15m', el('span', {}, ['15m']));
+addCase('timeDot6h', el('span', {}, ['\u00b7 6h']));
+addCase('timeJustNow', el('span', {}, ['just now']));
+addCase('time9dE', el('span', {}, ['9 days ago']));
+addCase('time12hE', el('span', {}, ['12 hours ago']));
+
 // Realistic Settings dialog shell for Position A injection test
 const mockSettingsFeedback = el('button', {}, ['Give Feedback']);
 const mockSettingsSidebar = el('div', {}, [
@@ -622,6 +636,20 @@ checkEq('guardShellCmd', nodes.guardShellCmd.textContent, 'gh auth login');
 checkEq('guardPlainDoc', nodes.guardPlainDoc.textContent, 'documentation');
 checkEq('guardUnknownWord', nodes.guardUnknownWord.textContent, 'Unknown');
 checkEq('guardUiBlock', nodes.guardUiBlock.textContent, 'Give Feedback');
+
+// Relative Time assertions
+checkEq('time6h', nodes.time6h.textContent, '6小时前');
+checkEq('time9h', nodes.time9h.textContent, '9小时前');
+checkEq('time1d', nodes.time1d.textContent, '1天前');
+checkEq('time3d', nodes.time3d.textContent, '3天前');
+checkEq('time4d', nodes.time4d.textContent, '4天前');
+checkEq('time5d', nodes.time5d.textContent, '5天前');
+checkEq('time20h', nodes.time20h.textContent, '20小时前');
+checkEq('time15m', nodes.time15m.textContent, '15分钟前');
+checkEq('timeDot6h', nodes.timeDot6h.textContent, '\u00b7 6小时前');
+checkEq('timeJustNow', nodes.timeJustNow.textContent, '刚刚');
+checkEq('time9dE', nodes.time9dE.textContent, '9天前');
+checkEq('time12hE', nodes.time12hE.textContent, '12小时前');
 
 // Position A Settings UI injection assertions
 const sidebarPill = findById(rootEl, 'agy-zh-sidebar-pill');

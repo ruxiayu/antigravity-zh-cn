@@ -1,5 +1,9 @@
-### 本次更新内容（v2.31.4）
+### 本次更新内容（v2.31.5）
 
+- **补齐会话与项目历史相对时间动态中文化（修复侧边栏时间英文缩写遗漏）**：
+  - 深度支持侧边栏会话与项目树右侧紧凑相对时间缩写解析：`6h` / `9h` / `20h` $\rightarrow$ `6小时前` / `9小时前` / `20小时前`、`1d` / `3d` / `5d` $\rightarrow$ `1天前` / `3天前` / `5天前`、`5m` / `15m` $\rightarrow$ `5分钟前` / `15分钟前`、`1w` $\rightarrow$ `1周前`、`1mo` $\rightarrow$ `1个月前`、`1y` $\rightarrow$ `1年前`；
+  - 兼容前缀圆点（如 `· 6h` $\rightarrow$ `· 6小时前`）及完整英文短语（如 `9 days ago` $\rightarrow$ `9天前`、`just now` $\rightarrow$ `刚刚`、`yesterday` $\rightarrow$ `昨天`、`12 hours ago` $\rightarrow$ `12小时前` 等）；
+  - 新增 12 项 E2E 自动化测试用例，全量 153 项测试断言 100% 验证通过。
 - **跨新老版本自适应注入（已实测兼容 `v2.28.2 ~ v2.31.2`）**：
   - 修复旧版（如 `v2.28.2`）下 `dist/tray.js` `Identifier 'translations' has already been declared` 语法错误、`dist/ipcHandlers.js` 缺少 `registerWcvIpcHandlers` 锚点回退、以及同目录存在 `.unpacked` 时重放提取报错的问题；
   - 备份复用校验 `app.asar.original.bak` 与当前客户端版本是否一致，客户端升级后不会误用旧版备份覆盖新版。
