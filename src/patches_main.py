@@ -1015,7 +1015,7 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
             batLines.push('exit /b 0');
 
             fs.writeFileSync(batPath, batLines.join('\\r\\n'), 'utf8');
-            fs.writeFileSync(vbsPath, 'Set ws = CreateObject("WScript.Shell")\\r\\nws.Run "cmd.exe /c """ & WScript.Arguments(0) & """", 0, False\\r\\n', 'utf8');
+            fs.writeFileSync(vbsPath, 'Set ws = CreateObject("WScript.Shell")\\r\\nws.Run "cmd.exe /c " & Chr(34) & WScript.Arguments(0) & Chr(34), 0, False\\r\\n', 'utf8');
 
             const child = cp.spawn('wscript.exe', ['//nologo', vbsPath, batPath], {{
                 detached: true,
