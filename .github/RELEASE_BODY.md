@@ -1,9 +1,12 @@
-### 本次更新内容（v2.31.5）
+### 本次更新内容（v2.31.6）
 
-- **补齐会话与项目历史相对时间动态中文化（修复侧边栏时间英文缩写遗漏）**：
-  - 深度支持侧边栏会话与项目树右侧紧凑相对时间缩写解析：`6h` / `9h` / `20h` $\rightarrow$ `6小时前` / `9小时前` / `20小时前`、`1d` / `3d` / `5d` $\rightarrow$ `1天前` / `3天前` / `5天前`、`5m` / `15m` $\rightarrow$ `5分钟前` / `15分钟前`、`1w` $\rightarrow$ `1周前`、`1mo` $\rightarrow$ `1个月前`、`1y` $\rightarrow$ `1年前`；
-  - 兼容前缀圆点（如 `· 6h` $\rightarrow$ `· 6小时前`）及完整英文短语（如 `9 days ago` $\rightarrow$ `9天前`、`just now` $\rightarrow$ `刚刚`、`yesterday` $\rightarrow$ `昨天`、`12 hours ago` $\rightarrow$ `12小时前` 等）；
-  - 新增 12 项 E2E 自动化测试用例，全量 153 项测试断言 100% 验证通过。
+- **修复应用内一键下载更新死循环与黑框跳动问题（重大体验优化）**：
+  - **进度条实时平滑刷新**：将下载进度与状态深度绑定至渲染签名流，下载期间 `0% ~ 100%` 实时同步渲染，无需手动关闭/重开设置界面即可查看实时进度；
+  - **彻底告别黑框弹窗**：采用 Windows 原生无窗口隐身调度器（VBScript WScript.Shell 隐身封装），彻底消除子命令（`ping` / `tasklist` / `find`）导致的黑框闪烁与跳出；
+  - **秒级重启与防死循环加固**：热更新触发后主进程采用 `app.exit(0)` 瞬间释放文件占用；后台守护脚本限制最多 4 次轮询强制退出，杜绝死循环，更新完成后秒级静默自动拉起新版客户端；
+- **补齐会话与项目历史相对时间动态中文化（v2.31.5 特性）**：
+  - 深度解析并汉化侧边栏会话和项目树右侧紧凑相对时间缩写：`6h` / `9h` / `20h` $\rightarrow$ `6小时前` / `9小时前` / `20小时前`、`1d` / `3d` / `5d` $\rightarrow$ `1天前` / `3天前` / `5天前`、`5m` / `15m` $\rightarrow$ `5分钟前` / `15分钟前`、`1w` $\rightarrow$ `1周前`、`1mo` $\rightarrow$ `1个月前`、`1y` $\rightarrow$ `1年前`；
+  - 兼容前缀圆点（如 `· 6h` $\rightarrow$ `· 6小时前`）及完整英文短语（如 `9 days ago` $\rightarrow$ `9天前`、`just now` $\rightarrow$ `刚刚`、`yesterday` $\rightarrow$ `昨天` 等）。
 - **跨新老版本自适应注入（已实测兼容 `v2.28.2 ~ v2.31.2`）**：
   - 修复旧版（如 `v2.28.2`）下 `dist/tray.js` `Identifier 'translations' has already been declared` 语法错误、`dist/ipcHandlers.js` 缺少 `registerWcvIpcHandlers` 锚点回退、以及同目录存在 `.unpacked` 时重放提取报错的问题；
   - 备份复用校验 `app.asar.original.bak` 与当前客户端版本是否一致，客户端升级后不会误用旧版备份覆盖新版。

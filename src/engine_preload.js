@@ -1605,6 +1605,8 @@
       uiState.checking,
       uiState.simulatedUpdate,
       uiState.copied,
+      uiState.downloadStatus,
+      uiState.downloadPercent,
       isAutoCheckEnabled(),
       ds.mode,
       ds.latestTag,

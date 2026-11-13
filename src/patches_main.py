@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Callable
 
-PATCH_VERSION = "2.31.5"
+PATCH_VERSION = "2.31.6"
 REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
 
 PRELOAD_MARKERS = (
@@ -981,22 +981,23 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                 ? 'G:\\\\Anget backup\\\\Antigravity_auto_update_backup'
                 : path.join(appDir, 'resources');
             const batPath = path.join(tempDir, 'agy_zh_apply_update.bat');
+            const vbsPath = path.join(tempDir, 'agy_zh_silent_runner.vbs');
 
             const batLines = [
                 '@echo off',
                 'chcp 65001 >nul',
-                'title Antigravity 中文汉化热更新中...',
+                'taskkill /F /T /IM Antigravity.exe >nul 2>&1',
+                'taskkill /F /T /IM language_server_windows_x64.exe >nul 2>&1',
+                'ping -n 2 127.0.0.1 >nul',
                 'set /a tries=0',
                 ':WAIT_LOOP',
                 'set /a tries+=1',
                 'tasklist /FI "IMAGENAME eq Antigravity.exe" 2>nul | find /I "Antigravity.exe" >nul',
                 'if not errorlevel 1 (',
-                '    if %tries% GEQ 6 taskkill /F /IM Antigravity.exe >nul 2>&1',
-                '    ping -n 2 127.0.0.1 >nul',
-                '    goto WAIT_LOOP',
+                '    taskkill /F /T /IM Antigravity.exe >nul 2>&1',
+                '    ping -n 1 127.0.0.1 >nul',
+                '    if %tries% LSS 4 goto WAIT_LOOP',
                 ')',
-                'taskkill /F /IM language_server_windows_x64.exe >nul 2>&1',
-                'ping -n 2 127.0.0.1 >nul',
                 'if not exist "' + backupDir + '" mkdir "' + backupDir + '" >nul 2>&1',
                 'copy /y "' + targetAsar + '" "' + backupDir + '\\\\app.asar.before_hot_update" >nul',
             ];
@@ -1010,16 +1011,25 @@ def _build_update_ipc_block(target_app_version: str, patch_version: str) -> str:
                 batLines.push('set "ELECTRON_NO_ATTACH_CONSOLE=1"');
                 batLines.push('start "" "' + exePath + '"');
             }}
+            batLines.push('del /f /q "' + vbsPath + '" >nul 2>&1');
             batLines.push('exit /b 0');
 
             fs.writeFileSync(batPath, batLines.join('\\r\\n'), 'utf8');
-            const child = cp.spawn('cmd.exe', ['/c', batPath], {{
+            fs.writeFileSync(vbsPath, 'Set ws = CreateObject("WScript.Shell")\\r\\nws.Run "cmd.exe /c """ & WScript.Arguments(0) & """", 0, False\\r\\n', 'utf8');
+
+            const child = cp.spawn('wscript.exe', ['//nologo', vbsPath, batPath], {{
                 detached: true,
                 stdio: 'ignore',
                 windowsHide: true,
             }});
             child.unref();
-            setTimeout(() => {{ electron_1.app.quit(); }}, 150);
+            setTimeout(() => {{
+                try {{
+                    electron_1.app.exit(0);
+                }} catch (_e) {{
+                    electron_1.app.quit();
+                }}
+            }}, 200);
             return {{ ok: true, applied: true }};
         }});
     }}
