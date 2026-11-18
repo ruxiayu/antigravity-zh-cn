@@ -332,6 +332,15 @@
     if (/^Thinking(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
       return replaceTrimmed(str, trimmed, '深度思考' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
     }
+    if (/^Limited\s+time(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
+      return replaceTrimmed(str, trimmed, '限时' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
+    }
+    if ((m = /^Orchestrator\s*\((.+?)\)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '编排器 (' + m[1] + ')');
+    }
+    if ((m = /^(.+?)\s+that\s+may\s+offload\s+routine\s+steps\s+to\s+(.+?)\.\s*Same\s+(.+?)-\s*level\s+quality,\s*fewer\s+tokens\s+used\.?$/i.exec(collapsed))) {
+      return replaceTrimmed(str, trimmed, '由 ' + m[1] + ' 主导，并将常规步骤分流至 ' + m[2] + '。保持与 ' + m[3] + ' 同等质量，消耗更少 Token。');
+    }
     if ((m = /^(.+?\s+is\s+now\s+available\s+on\s+paid\s+Pro\s+and\s+Ultra\s+plans\.)\s*(Third-party\s+model\s+access\s+will\s+no\s+longer\s+be\s+available\s+on\s+your\s+current\s+plan\s+starting\s+on\s+.+?\.)?$/i.exec(normTrimmed))) {
       let res = '';
       const p1 = /^(.+?)\s+is\s+now\s+available/i.exec(m[1]);
@@ -372,7 +381,9 @@
 
     // 4.8 其他高频动态模板 (Model Selector aria / Thinking / Voice / Shortcuts / Running / Steps / Browser)
     if ((m = /^Select model,\s*current:\s*(.+)$/i.exec(normTrimmed))) {
-      const cur = m[1].replace(/\b(Low|Medium|High|Extra|Max)\b/gi, function(w) { return EFFORT_MAP[w.toLowerCase()] || w; });
+      const cur = m[1]
+        .replace(/^Orchestrator\s*\((.+?)\)/i, '编排器 ($1)')
+        .replace(/\b(Low|Medium|High|Extra|Max)\b/gi, function(w) { return EFFORT_MAP[w.toLowerCase()] || w; });
       return replaceTrimmed(str, trimmed, '选择模型，当前：' + cur);
     }
     if ((m = /^Choose\s+(.+?)'s\s+Voice$/i.exec(normTrimmed))) {
@@ -1205,7 +1216,7 @@
       return null;
     }
     const explicitSidebar = document.querySelector && document.querySelector('[data-testid="settings-sidebar"]');
-    const navTokens = ['通用', '应用设置', '外观', '快捷键', '驱动模型', 'General', 'App Settings', 'Appearance', 'Shortcuts'];
+    const navTokens = ['通用', '应用设置', '外观', '快捷键', '驱动模型', '系统通知', '浏览器', 'General', 'Application', 'App Settings', 'Appearance', 'Shortcuts', 'Notifications', 'Browser', 'Models'];
     const candidates = explicitSidebar ? [explicitSidebar] : document.querySelectorAll('button, a, div, span, li');
 
     for (let i = 0; i < candidates.length; i++) {
@@ -1296,12 +1307,12 @@
         if (!el || (el.closest && el.closest('[' + AGY_ZH_GUARD_ATTR + '="1"]'))) continue;
         if (sidebarRoot && typeof sidebarRoot.contains === 'function' && sidebarRoot.contains(el)) continue;
         const txt = (el.textContent || '').trim();
-        if (txt !== '全局权限' && txt !== 'Global Permissions' && txt !== '权限' && txt !== 'Permissions') continue;
+        if (txt !== '全局权限' && txt !== 'Global Permissions' && txt !== '权限' && txt !== 'Permissions' && txt !== '界面布局' && txt !== 'Interface Layout' && txt !== '语音模式' && txt !== 'Voice mode') continue;
 
         let sec = el;
         for (let step = 0; step < 6 && sec && sec.parentElement && sec.parentElement !== root; step++) {
           const pTxt = sec.parentElement.textContent || '';
-          if (pTxt.indexOf('智能体行为') !== -1 || pTxt.indexOf('Agent Behavior') !== -1 || pTxt.indexOf('执行') !== -1 || pTxt.indexOf('Execution') !== -1 || pTxt.indexOf('语音模式') !== -1 || pTxt.indexOf('Voice mode') !== -1) {
+          if (pTxt.indexOf('智能体行为') !== -1 || pTxt.indexOf('Agent Behavior') !== -1 || pTxt.indexOf('执行') !== -1 || pTxt.indexOf('Execution') !== -1 || pTxt.indexOf('语音模式') !== -1 || pTxt.indexOf('Voice mode') !== -1 || pTxt.indexOf('界面布局') !== -1 || pTxt.indexOf('Interface Layout') !== -1 || pTxt.indexOf('全局权限') !== -1 || pTxt.indexOf('Global Permissions') !== -1) {
             return { sectionsContainer: sec.parentElement, permSection: sec };
           }
           sec = sec.parentElement;

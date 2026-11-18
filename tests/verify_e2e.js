@@ -362,6 +362,11 @@ addCase('tooltipGroupGemini', el('div', { role: 'tooltip', class: 'compact-toolt
 addCase('tooltipGroupClaude', el('div', { role: 'tooltip', class: 'compact-tooltip surface-glass' }, ['Models within this group: Claude Opus, Claude Sonnet, GPT-OSS']));
 addCase('tooltipGroupDynamic', el('div', { role: 'tooltip', class: 'compact-tooltip surface-glass' }, ['Models within this group: Gemini Nano, Gemini Ultra']));
 addCase('tooltipArgon', el('div', { role: 'tooltip', class: 'compact-tooltip surface-glass' }, ['For paid Pro plans, Argon quota is separate. Higher Argon quota (included as part of the larger Gemini quota bucket) is available on Ultra plans.']));
+addCase('badgeLimitedTime', el('span', { class: 'rounded-full' }, ['Limited time']));
+addCase('modelOrchCarbon', el('div', { role: 'option' }, [el('span', {}, ['Orchestrator (Carbon)']), el('span', { class: 'rounded-full' }, ['New'])]));
+addCase('modelOrchArgon', el('div', { role: 'option' }, [el('span', {}, ['Orchestrator (Argon)']), el('span', { class: 'rounded-full' }, ['New'])]));
+addCase('tooltipOrchCarbon', el('div', { role: 'tooltip' }, ['Carbon that may offload routine\nsteps to Hydrogen. Same Carbon-\nlevel quality, fewer tokens used.']));
+addCase('tooltipOrchArgon', el('div', { role: 'tooltip' }, ['Argon that may offload routine steps to Hydrogen. Same Argon-level quality, fewer tokens used.']));
 addCase('tooltipOverages', el('div', { role: 'tooltip' }, ["Your plan's baseline quota will refresh on November 18, 2026. To continue using this model now, enable AI Credit overages."]));
 addCase('swarmPluginDesc', el('p', {}, ['Unlock the power of agent swarms.']));
 addCase('skillPlugin', el('p', {}, ['How to manage and create plugins — namespaced bundles of skills, agents, rules, MCP servers and hooks that install, enable and disable as a single unit. Use this skill when the user wants to enable, disable, install or uninstall a plugin, when they want to create a new plugin, or when a new customization should be packaged into a plugin rather than left loose. Also triggered by the /plugin slash command. Don\'t use for the underlying customization system itself — discovery roots, loading priority, or authoring a standalone skill, agent, rule, hook or MCP server outside a plugin; see the customizations guide skill for those.']));
@@ -595,6 +600,13 @@ checkEq('tooltipGroupGemini', nodes.tooltipGroupGemini.textContent, '此分组�
 checkEq('tooltipGroupClaude', nodes.tooltipGroupClaude.textContent, '此分组包含的模型：Claude Opus、Claude Sonnet、GPT-OSS');
 checkEq('tooltipGroupDynamic', nodes.tooltipGroupDynamic.textContent, '此分组包含的模型：Gemini Nano、Gemini Ultra');
 checkEq('tooltipArgon', nodes.tooltipArgon.textContent, '对于付费 Pro 方案，Argon 配额独立计算。Ultra 方案提供更高的 Argon 配额（包含在更大的 Gemini 配额池中）。');
+checkEq('badgeLimitedTime', nodes.badgeLimitedTime.textContent, '限时');
+checkEq('modelOrchCarbon', nodes.modelOrchCarbon.children[0].textContent, '编排器 (Carbon)');
+checkEq('modelOrchCarbonBadge', nodes.modelOrchCarbon.children[1].textContent, '全新');
+checkEq('modelOrchArgon', nodes.modelOrchArgon.children[0].textContent, '编排器 (Argon)');
+checkEq('modelOrchArgonBadge', nodes.modelOrchArgon.children[1].textContent, '全新');
+checkEq('tooltipOrchCarbon', nodes.tooltipOrchCarbon.textContent, '由 Carbon 主导，并将常规步骤分流至 Hydrogen。保持与 Carbon 同等质量，消耗更少 Token。');
+checkEq('tooltipOrchArgon', nodes.tooltipOrchArgon.textContent, '由 Argon 主导，并将常规步骤分流至 Hydrogen。保持与 Argon 同等质量，消耗更少 Token。');
 checkEq('tooltipOverages', nodes.tooltipOverages.textContent, '您方案的基础配额将于 2026 年 11 月 18 日 重置。如需立即继续使用此模型，请启用 AI 额度超额用量。');
 checkEq('swarmPluginDesc', nodes.swarmPluginDesc.textContent, '释放智能体集群协作的强大能力。');
 checkEq('skillPlugin', nodes.skillPlugin.textContent, '说明如何管理与创建插件（将技能、智能体、规则、MCP 服务器与钩子按命名空间打包为可统一安装、启用和停用的单一单元）。当用户希望启用、停用、安装、卸载或新建插件，或将自定义项打包为插件而非散落存放时使用，也可通过 /plugin 斜杠命令触发。请勿用于查询自定义系统底层机制（如发现路径、加载优先级或编写独立自定义项，此类问题请查阅 customizations guide 技能）。');
