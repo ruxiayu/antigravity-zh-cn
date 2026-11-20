@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Callable
 
-PATCH_VERSION = "2.32.2"
+PATCH_VERSION = "2.33.0"
 REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
 
 PRELOAD_MARKERS = (
@@ -108,10 +108,28 @@ const contextMenuDict = {
     'Delete Project': '删除项目',
     'Archive Project': '归档项目',
     'Unarchive Project': '取消归档项目',
+    'Copy Project Name': '复制项目名称',
+    'Copy Project Path': '复制项目路径',
+    'Copy Project ID': '复制项目 ID',
+    'Copy Folder Path': '复制文件夹路径',
+    'Copy File Path': '复制文件路径',
+    'Copy Workspace Path': '复制工作区路径',
+    'Copy Worktree Path': '复制工作树路径',
+    'Project Settings': '项目设置',
+    'Conversation Settings': '对话设置',
+    'Workspace Settings': '工作区设置',
+    'Add Folder to Project': '添加文件夹到项目',
+    'Manage Project Folders': '管理项目文件夹',
     'Remove Folder from Project': '从项目中移除文件夹',
     'New Conversation in Project': '项目内新建对话',
+    'New Conversation': '新建对话',
     'Open in Terminal': '在终端中打开',
     'Connection info…': '连接信息…',
+    'Connect to Host…': '连接到主机…',
+    'Connect to Host...': '连接到主机...',
+    'Disconnect from Host': '断开主机连接',
+    'Restart SSH Server': '重启 SSH 服务',
+    'Stop SSH Server': '停止 SSH 服务',
     'Split': '拆分',
     'Split from here': '从此处拆分',
     'Split Conversation': '拆分会话',
@@ -139,7 +157,13 @@ const contextMenuDict = {
     'Open in New Window': '在新窗口中打开',
     'Open in Editor': '在编辑器中打开',
     'Reveal in File Explorer': '在文件资源管理器中显示',
+    'Show in File Explorer': '在文件资源管理器中显示',
+    'Show in Explorer': '在文件资源管理器中显示',
+    'Open in File Explorer': '在文件资源管理器中打开',
     'Reveal in Finder': '在访达中显示',
+    'Show in Finder': '在访达中显示',
+    'Open in Finder': '在访达中打开',
+    'Show in Folder': '在文件夹中显示',
     'Share': '分享',
     'Export': '导出',
     'Duplicate': '创建副本',
@@ -295,6 +319,76 @@ REPLACEMENT_TABLES = {
             "return { error: `This location cannot be opened in WSL: ${winPath}` };",
             "return { error: `无法在 WSL 中打开此位置：${winPath}` };",
         ),
+    ],
+    "remote/remoteManager.js": [
+        ("title: 'Choose an SSH config file',", "title: '选择 SSH 配置文件',"),
+        ("message: `${name} can't be the SSH config file`,", "message: `无法将 ${name} 用作 SSH 配置文件`,"),
+        ("title: 'Choose another SSH config file',", "title: '选择其他 SSH 配置文件',"),
+        ("buttons: ['Choose Another File…', 'Cancel'],", "buttons: ['选择其他文件…', '取消'],"),
+        ("title: 'SSH connection failed',", "title: 'SSH 连接失败',"),
+        ("title: 'Could not restart the SSH server',", "title: '无法重启 SSH 服务',"),
+        ("message: `${entry.label} still runs Antigravity server ${running}.`,", "message: `${entry.label} 仍在运行 Antigravity 服务端 ${running}。`,"),
+        ("buttons: ['Stop Server', 'Cancel'],", "buttons: ['停止服务', '取消'],"),
+        ("title: 'Stop SSH server',", "title: '停止 SSH 服务',"),
+        ("message: `Stop the Antigravity server on ${entry.label}?`,", "message: `确定要停止 ${entry.label} 上的 Antigravity 服务吗？`,"),
+        (
+            "detail: 'Agents running on this host will stop and its window will close. ' +\n                        'The server starts again the next time you connect.',",
+            "detail: '该主机上运行中的智能体将会停止，对应窗口也会关闭。' +\n                        '下次重新连接时，服务端将自动再次启动。',",
+        ),
+        ("message: `Not connected to ${label}`,", "message: `尚未连接到 ${label}`,"),
+        ("detail: 'Reconnect first, then stop its server.',", "detail: '请先重新连接，然后再停止其服务端。',"),
+        ("buttons: ['Allow', \"Don't Allow\"],", "buttons: ['允许', '不允许'],"),
+        ("title: 'Microphone access',", "title: '麦克风权限',"),
+        ("message: `Allow ${label} to use your microphone?`,", "message: `是否允许 ${label} 使用您的麦克风？`,"),
+        (
+            "detail: `The page in this window comes from ${label}. If you allow it, that ` +\n                \"host can use this computer's microphone for voice whenever one of \" +\n                'its windows is open. Antigravity asks again after you quit it.',",
+            "detail: `此窗口中的页面来自 ${label}。如果允许，只要该主机的任一窗口处于打开状态，` +\n                '它便可使用本机的麦克风进行语音输入。退出 Antigravity 后下次将再次询问。',",
+        ),
+        ("buttons: ['Sign In', 'Cancel'],", "buttons: ['登录', '取消'],"),
+        ("title: 'Sign in',", "title: '登录',"),
+        ("message: `Sign in to your organization for ${entry.label}?`,", "message: `是否为 ${entry.label} 登录您的组织账户？`,"),
+        ("buttons: ['Continue', 'Cancel'],", "buttons: ['继续', '取消'],"),
+        ("message: `Finish this sign-in on ${entry.label}?`,", "message: `是否在 ${entry.label} 上完成此次登录？`,"),
+        ("buttons: ['Take Over', 'Cancel'],", "buttons: ['接管', '取消'],"),
+        ("title: 'Shared home directory',", "title: '共享主目录',"),
+        ("buttons: ['Restart', 'Later'],", "buttons: ['立即重启', '稍后'],"),
+        ("title: 'Restart SSH server',", "title: '重启 SSH 服务',"),
+        (
+            "message: `${label} is running server ${running}; this app is ${expected}. Restart the server now?`,",
+            "message: `${label} 当前运行的服务端版本为 ${running}，本机应用版本为 ${expected}。是否立即重启服务端？`,",
+        ),
+        (
+            "detail: `Any ${what} still running on it stops. The server starts again with this app's version.`,",
+            "detail: '该主机上仍在运行的智能体、任务或终端将会停止，服务端随后将以当前应用版本重新启动。',",
+        ),
+    ],
+    "remote/disconnectedPage.js": [
+        ("reconnect: 'Reconnect',", "reconnect: '重新连接',"),
+        ("stop: 'Stop Server',", "stop: '停止服务',"),
+        ("close: 'Close',", "close: '关闭',"),
+        ("? 'Restarting…'", "? '正在重启…'"),
+        ("? 'Reconnecting…'", "? '正在重新连接…'"),
+        (": 'Disconnected';", ": '连接已断开';"),
+        ("? `Restarting the Antigravity server on ${host}…`", "? `正在重启 ${host} 上的 Antigravity 服务…`"),
+        ("? `Reconnecting to ${host}…`", "? `正在重新连接到 ${host}…`"),
+        (": `Disconnected from ${host}`;", ": `已断开与 ${host} 的连接`;"),
+        ("? 'This window opens it again once it has started.'", "? '服务启动完成后，此窗口将自动重新打开。'"),
+        ("? `Its server on ${host} stopped, and its agents with it.`", "? `${host} 上的服务端已停止，相关智能体也已随之停止。`"),
+        (": `Agents keep running on ${host}.`", ": `智能体仍在 ${host} 上继续运行。`"),
+        ("? `Its agents on ${host} stopped with it.`", "? `${host} 上的相关智能体已随之停止。`"),
+        (": `Agents keep running on ${host} unless its server stopped.`;", ": `除非服务端停止，否则智能体仍会在 ${host} 上继续运行。`;"),
+    ],
+    "remote/sshPrompts.js": [
+        (
+            '<div class="buttons"><button id="cancel" class="secondary">Cancel</button><button id="continue" class="primary">Continue</button></div>',
+            '<div class="buttons"><button id="cancel" class="secondary">取消</button><button id="continue" class="primary">继续</button></div>',
+        ),
+        ("buttons: confirm ? ['Yes', 'No'] : ['Cancel'],", "buttons: confirm ? ['是', '否'] : ['取消'],"),
+    ],
+    "computer/hud.js": [
+        ("<title>AGY Desktop HUD</title>", "<title>AGY 桌面控制浮窗</title>"),
+        ('<button id="stop">Stop</button><button id="resume">Resume</button>', '<button id="stop">停止</button><button id="resume">恢复</button>'),
+        ("title: 'AGY Desktop HUD',", "title: 'AGY 桌面控制浮窗',"),
     ],
 }
 
@@ -1090,10 +1184,11 @@ def patch_ipc_handlers(
 
     # Fix updater:apply so invoking updater:apply directly delegates to applyHostUpdate()
     # rather than blindly marking un-downloaded state as Ready.
+    # Supports both legacy `electron_1.ipcMain.handle('updater:apply', ...)` and v2.33.0+ `localOnly('updater:apply', ...)`.
     updater_apply_re = re.compile(
-        r"("
+        r"((?:"
         + re.escape(elec_mod)
-        + r"\.ipcMain\.handle\(\s*['\"]updater:apply['\"]\s*,\s*async\s*\(\)\s*=>\s*\{)[\s\S]{0,220}?(\n\s*\}\);)"
+        + r"\.ipcMain\.handle|localOnly)\(\s*['\"]updater:apply['\"]\s*,\s*async\s*\(\)\s*=>\s*\{)[\s\S]{0,220}?(\n\s*\}\);)"
     )
     text = updater_apply_re.sub(
         lambda m: (
@@ -1142,6 +1237,10 @@ def patch_table_modules(dist_dir: Path) -> list[str]:
         "provisionSplash.js",
         "webviewPopupSecurity.js",
         "wsl.js",
+        "remote/remoteManager.js",
+        "remote/disconnectedPage.js",
+        "remote/sshPrompts.js",
+        "computer/hud.js",
     ):
         target = dist_dir / rel
         if not target.exists():

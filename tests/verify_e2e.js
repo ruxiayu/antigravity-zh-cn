@@ -756,6 +756,32 @@ checkEq('voiceErrSplit', voiceErrTip.children[0].textContent, '您的登录状�
 checkEq('voiceTryAgain', voiceErrTip.children[1].textContent, '重试');
 checkEq('voiceMicErrSplit', voiceMicErrTip.children[0].textContent, '麦克风权限已被拦截，请前往 隐私设置.');
 
+// v2.33.0 model tooltip, settings subtitles, sandbox notice & orchestrator checks
+const v233Host = el('div', {}, [
+  el('div', { role: 'tooltip' }, ['For most deep reasoning and complex problems']),
+  el('div', { role: 'tooltip' }, ['The original Gemini 4 model for advanced workflows']),
+  el('div', { role: 'tooltip' }, ['For speed and efficiency in execution tasks']),
+  el('div', { role: 'tooltip' }, ['Neon that may offload routine steps to Hydrogen. Same Neon-level quality, fewer tokens used.']),
+  el('div', { role: 'tooltip' }, ['Argon that may offload routine steps to Hydrogen. Same Argon-level quality, fewer tokens used.']),
+  el('span', {}, ['Orchestrator (Neon)']),
+  el('span', {}, ['Orchestrator (Argon)']),
+  el('p', {}, ["Default and Auto need the terminal sandbox, which isn't available on this host."]),
+  el('p', {}, ['Manage project folders and settings.']),
+  el('p', {}, ['Settings for conversations outside of projects.']),
+]);
+rootEl.appendChild(v233Host);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v233Host] }]);
+checkEq('v233ModelDeep', v233Host.children[0].textContent, '适用于大多数深度推理与复杂问题');
+checkEq('v233ModelOrig', v233Host.children[1].textContent, '面向高级工作流的经典 Gemini 4 模型');
+checkEq('v233ModelFast', v233Host.children[2].textContent, '注重执行任务的速度与效率');
+checkEq('v233OrchNeonDesc', v233Host.children[3].textContent, '由 Neon 主导，并将常规步骤分流至 Hydrogen。保持与 Neon 同等质量，消耗更少 Token。');
+checkEq('v233OrchArgonDesc', v233Host.children[4].textContent, '由 Argon 主导，并将常规步骤分流至 Hydrogen。保持与 Argon 同等质量，消耗更少 Token。');
+checkEq('v233OrchNeonTitle', v233Host.children[5].textContent, '编排器 (Neon)');
+checkEq('v233OrchArgonTitle', v233Host.children[6].textContent, '编排器 (Argon)');
+checkEq('v233SandboxNotice', v233Host.children[7].textContent, '默认与自动模式需要终端沙箱支持，当前主机暂不可用。');
+checkEq('v233ProjectSub', v233Host.children[8].textContent, '管理项目文件夹和设置。');
+checkEq('v233ConvSub', v233Host.children[9].textContent, '项目之外对话的相关设置。');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const updaterExpectations = blockAutoUpdate
@@ -781,6 +807,21 @@ if (distDir) {
     const content = fs.readFileSync(full, 'utf8');
     for (const n of needles) {
       assert(content.includes(n), `Missing expected localization in dist/${rel}: ${n}`);
+    }
+  }
+  const optionalV233Modules = {
+    'remote/remoteManager.js': ["title: '选择 SSH 配置文件'", "title: '停止 SSH 服务'", "title: '重启 SSH 服务'", "title: '麦克风权限'"],
+    'remote/disconnectedPage.js': ["reconnect: '重新连接'", "stop: '停止服务'", "close: '关闭'", ": '连接已断开';"],
+    'remote/sshPrompts.js': ['>取消</button>', '>继续</button>', "buttons: confirm ? ['是', '否'] : ['取消'],"],
+    'computer/hud.js': ['<title>AGY 桌面控制浮窗</title>', '<button id="stop">停止</button><button id="resume">恢复</button>'],
+  };
+  for (const [rel, needles] of Object.entries(optionalV233Modules)) {
+    const full = path.join(distDir, rel);
+    if (!fs.existsSync(full)) continue;
+    execFileSync('node', ['--check', full]);
+    const content = fs.readFileSync(full, 'utf8');
+    for (const n of needles) {
+      assert(content.includes(n), `Missing expected v2.33.0 localization in dist/${rel}: ${n}`);
     }
   }
 
@@ -831,6 +872,9 @@ if (distDir) {
       },
       { id: 'grp', label: 'Move to Group: Work' },
       { id: 'sub', label: 'Sub', type: 'submenu', submenu: [{ id: '2a', label: 'Delete Permanently' }] },
+      { id: 'p1', label: 'Copy Project Name' },
+      { id: 'p2', label: 'Project Settings' },
+      { id: 'p3', label: 'Show in File Explorer' },
     ],
     () => {}
   );
@@ -847,6 +891,9 @@ if (distDir) {
   assert.strictEqual(ctxTpl[2].submenu[3].label, '从拆分视图移除');
   assert.strictEqual(ctxTpl[3].label, '移动到分组：Work');
   assert.strictEqual(ctxTpl[4].submenu[0].label, '彻底删除');
+  assert.strictEqual(ctxTpl[5].label, '复制项目名称');
+  assert.strictEqual(ctxTpl[6].label, '项目设置');
+  assert.strictEqual(ctxTpl[7].label, '在文件资源管理器中显示');
   console.log(`ALL E2E + ASAR DIST CHECKS PASSED (${assertCount} DOM assertions + 12 dist modules)!`);
 } else {
   console.log(`ALL E2E CHECKS PASSED (${assertCount} DOM assertions + MutationObserver + ${dictEntries.length} dict entries)!`);
