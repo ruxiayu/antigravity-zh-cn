@@ -794,6 +794,8 @@ const v234Host = el('div', {}, [
   el('button', { 'data-testid': 'model-selector-trigger', 'aria-label': 'Select model, current: Orchestrator Gemini 4 Neon Extra High · 1M' }, [
     el('span', {}, ['Orchestrator', ' ', 'Gemini 4 Neon', el('span', { class: 'opacity-70' }, [' ', 'Extra High · 1M'])])
   ]),
+  el('span', {}, ['Thinking effort']),
+  el('div', { role: 'tooltip' }, ['Controls how much time and quota the model spends\nreasoning before responding. Higher effort improves\naccuracy on hard problems, at the cost of slower\nresponses and higher quota use.']),
 ]);
 rootEl.appendChild(v234Host);
 capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234Host] }]);
@@ -803,6 +805,8 @@ checkEq('v234OrchBadge', v234Host.children[1].children[2].textContent, '全新')
 checkEq('v234OrchCombined', v234Host.children[2].textContent, '编排器 Gemini 4 Neon 超高');
 checkEq('v234TriggerAria', v234Host.children[3].getAttribute('aria-label'), '选择模型，当前：编排器 Gemini 4 Neon 超高 · 1M');
 checkEq('v234TriggerEffort', v234Host.children[3].children[0].children[3].textContent, ' 超高 · 1M');
+checkEq('v234ThinkingEffort', v234Host.children[4].textContent, '思考力度');
+checkEq('v234ThinkingEffortTip', v234Host.children[5].textContent, '控制模型在回复前用于推理的时间与配额。更高的思考力度可提升难题准确率，但会降低响应速度并消耗更多配额。');
 
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {

@@ -6760,5 +6760,7 @@
   "Orchestrator": "编排器",
   "Extra High": "超高",
   "Offloads routine steps to a faster executor. Same quality, fewer tokens used.": "将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。",
-  "Offloads routine steps to a faster executor. Same quality, fewer tokens used": "将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token"
+  "Offloads routine steps to a faster executor. Same quality, fewer tokens used": "将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token",
+  "Thinking effort": "思考力度",
+  "Controls how much time and quota the model spends reasoning before responding. Higher effort improves accuracy on hard problems, at the cost of slower responses and higher quota use.": "控制模型在回复前用于推理的时间与配额。更高的思考力度可提升难题准确率，但会降低响应速度并消耗更多配额。"
 }
