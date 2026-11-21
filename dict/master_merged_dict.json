@@ -6756,5 +6756,9 @@
   "Open in File Explorer": "在文件资源管理器中打开",
   "Open in Finder": "在访达中打开",
   "Add Folder to Project": "添加文件夹到项目",
-  "Manage Project Folders": "管理项目文件夹"
+  "Manage Project Folders": "管理项目文件夹",
+  "Orchestrator": "编排器",
+  "Extra High": "超高",
+  "Offloads routine steps to a faster executor. Same quality, fewer tokens used.": "将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。",
+  "Offloads routine steps to a faster executor. Same quality, fewer tokens used": "将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token"
 }

@@ -80,7 +80,7 @@
     return parts.join(spaced ? ' ' : '');
   }
 
-  const EFFORT_MAP = { low: '低', medium: '中', high: '高', xhigh: '超高', extra: '超高', max: '极高' };
+  const EFFORT_MAP = { low: '低', medium: '中', high: '高', xhigh: '超高', 'extra high': '超高', extra: '超高', max: '极高' };
 
   function isBlockedNode(el) {
     if (!el || !el.closest) return false;
@@ -335,8 +335,20 @@
     if (/^Limited\s+time(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
       return replaceTrimmed(str, trimmed, '限时' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
     }
+    if (/^Orchestrator$/i.test(normTrimmed)) {
+      return replaceTrimmed(str, trimmed, '编排器');
+    }
     if ((m = /^Orchestrator\s*\((.+?)\)$/i.exec(normTrimmed))) {
       return replaceTrimmed(str, trimmed, '编排器 (' + m[1] + ')');
+    }
+    if ((m = /^Orchestrator\s+(.+)$/i.exec(normTrimmed))) {
+      const rest = m[1].replace(/\b(Extra\s+High|Low|Medium|High|Extra|Max)\b/gi, function(w) {
+        return EFFORT_MAP[w.toLowerCase().replace(/\s+/g, ' ')] || w;
+      });
+      return replaceTrimmed(str, trimmed, '编排器 ' + rest);
+    }
+    if (/^Offloads\s+routine\s+steps\s+to\s+a\s+faster\s+executor\.\s*Same\s+quality,\s*fewer\s+tokens\s+used\.?$/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。');
     }
     if ((m = /^(.+?)\s+that\s+may\s+offload\s+routine\s+steps\s+to\s+(.+?)\.\s*Same\s+(.+?)-\s*level\s+quality,\s*fewer\s+tokens\s+used\.?$/i.exec(collapsed))) {
       return replaceTrimmed(str, trimmed, '由 ' + m[1] + ' 主导，并将常规步骤分流至 ' + m[2] + '。保持与 ' + m[3] + ' 同等质量，消耗更少 Token。');
@@ -383,7 +395,8 @@
     if ((m = /^Select model,\s*current:\s*(.+)$/i.exec(normTrimmed))) {
       const cur = m[1]
         .replace(/^Orchestrator\s*\((.+?)\)/i, '编排器 ($1)')
-        .replace(/\b(Low|Medium|High|Extra|Max)\b/gi, function(w) { return EFFORT_MAP[w.toLowerCase()] || w; });
+        .replace(/^Orchestrator\b/i, '编排器')
+        .replace(/\b(Extra\s+High|Low|Medium|High|Extra|Max)\b/gi, function(w) { return EFFORT_MAP[w.toLowerCase().replace(/\s+/g, ' ')] || w; });
       return replaceTrimmed(str, trimmed, '选择模型，当前：' + cur);
     }
     if ((m = /^Choose\s+(.+?)'s\s+Voice$/i.exec(normTrimmed))) {
@@ -703,15 +716,15 @@
       return true;
     }
 
-    // C. 模型推理档位 (Low / Medium / High / Extra / Max) 及其触发器拼接词 (" Medium · 1M")
-    const effortMatch = /^(\s*)(Low|Medium|High|Extra|Max)(\s*\u00b7\s*[A-Za-z0-9.]+)?(\s*)$/i.exec(original);
+    // C. 模型推理档位 (Low / Medium / High / Extra High / Extra / Max) 及其触发器拼接词 (" Medium · 1M")
+    const effortMatch = /^(\s*)(Extra\s+High|Low|Medium|High|Extra|Max)(\s*\u00b7\s*[A-Za-z0-9.]+)?(\s*)$/i.exec(original);
     if (effortMatch && el) {
       const inModelUi = Boolean(
         el.closest('[data-testid*="model-selector"], [data-testid*="effort"], [data-effort], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-floating-ui-portal], [role="menu"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="listbox"], [role="option"]') ||
         (el.previousElementSibling && el.previousElementSibling.getAttribute && el.previousElementSibling.getAttribute('data-testid') === 'model-selector-effort-group')
       );
       if (inModelUi) {
-        const efCn = EFFORT_MAP[effortMatch[2].toLowerCase()] || effortMatch[2];
+        const efCn = EFFORT_MAP[effortMatch[2].toLowerCase().replace(/\s+/g, ' ')] || effortMatch[2];
         const nextVal = effortMatch[1] + efCn + (effortMatch[3] || '') + effortMatch[4];
         if (nextVal !== original) node.nodeValue = nextVal;
         return true;

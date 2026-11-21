@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Callable
 
-PATCH_VERSION = "2.33.0"
+PATCH_VERSION = "2.34.0"
 REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
 
 PRELOAD_MARKERS = (
@@ -388,7 +388,25 @@ REPLACEMENT_TABLES = {
     "computer/hud.js": [
         ("<title>AGY Desktop HUD</title>", "<title>AGY 桌面控制浮窗</title>"),
         ('<button id="stop">Stop</button><button id="resume">Resume</button>', '<button id="stop">停止</button><button id="resume">恢复</button>'),
+        (
+            '<button id="stop">Stop</button><button id="resume" title="Let agents use this Mac again. The stopped task does not restart.">Allow again</button>',
+            '<button id="stop">停止</button><button id="resume" title="允许智能体再次使用此 Mac。已停止的任务不会重新启动。">再次允许</button>',
+        ),
+        ('<div id="status">AGY is controlling your Mac</div>', '<div id="status">AGY 正在控制您的 Mac</div>'),
+        ("end.textContent = 'Stopped';", "end.textContent = '已停止';"),
+        ("end.textContent = 'Stop';", "end.textContent = '停止';"),
         ("title: 'AGY Desktop HUD',", "title: 'AGY 桌面控制浮窗',"),
+    ],
+    "computer/hudState.js": [
+        ("? 'You took over — agent stopped'", "? '您已接管 — 智能体已停止'"),
+        (": 'Agent stopped';", ": '智能体已停止';"),
+        ("return { state: 'idle', text: 'Agent idle', visible };", "return { state: 'idle', text: '智能体空闲', visible };"),
+        ("? `AGY working in ${name} (background)`", "? `AGY 正在 ${name} 中运行（后台）`"),
+        (": 'AGY working in the background',", ": 'AGY 正在后台运行',"),
+        ("return { state: 'running', text: 'AGY is controlling your Mac', visible };", "return { state: 'running', text: 'AGY 正在控制您的 Mac', visible };"),
+    ],
+    "browserStream/capturePage.js": [
+        ("<title>Browser Stream Capture</title>", "<title>浏览器流采集</title>"),
     ],
 }
 
@@ -1241,6 +1259,8 @@ def patch_table_modules(dist_dir: Path) -> list[str]:
         "remote/disconnectedPage.js",
         "remote/sshPrompts.js",
         "computer/hud.js",
+        "computer/hudState.js",
+        "browserStream/capturePage.js",
     ):
         target = dist_dir / rel
         if not target.exists():

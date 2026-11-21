@@ -782,6 +782,28 @@ checkEq('v233SandboxNotice', v233Host.children[7].textContent, '默认与自动�
 checkEq('v233ProjectSub', v233Host.children[8].textContent, '管理项目文件夹和设置。');
 checkEq('v233ConvSub', v233Host.children[9].textContent, '项目之外对话的相关设置。');
 
+// v2.34.0 Orchestrator standalone/prefix, Extra High effort & new offload tooltip checks
+const v234Host = el('div', {}, [
+  el('div', { role: 'tooltip' }, ['Offloads routine steps to a faster\nexecutor. Same quality, fewer tokens used.']),
+  el('div', { role: 'option' }, [
+    el('span', {}, ['Orchestrator']),
+    el('span', {}, ['Gemini 4 Neon Extra High']),
+    el('span', { class: 'rounded-full' }, ['New']),
+  ]),
+  el('span', {}, ['Orchestrator Gemini 4 Neon Extra High']),
+  el('button', { 'data-testid': 'model-selector-trigger', 'aria-label': 'Select model, current: Orchestrator Gemini 4 Neon Extra High · 1M' }, [
+    el('span', {}, ['Orchestrator', ' ', 'Gemini 4 Neon', el('span', { class: 'opacity-70' }, [' ', 'Extra High · 1M'])])
+  ]),
+]);
+rootEl.appendChild(v234Host);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234Host] }]);
+checkEq('v234OffloadTip', v234Host.children[0].textContent, '将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。');
+checkEq('v234OrchSpan', v234Host.children[1].children[0].textContent, '编排器');
+checkEq('v234OrchBadge', v234Host.children[1].children[2].textContent, '全新');
+checkEq('v234OrchCombined', v234Host.children[2].textContent, '编排器 Gemini 4 Neon 超高');
+checkEq('v234TriggerAria', v234Host.children[3].getAttribute('aria-label'), '选择模型，当前：编排器 Gemini 4 Neon 超高 · 1M');
+checkEq('v234TriggerEffort', v234Host.children[3].children[0].children[3].textContent, ' 超高 · 1M');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const updaterExpectations = blockAutoUpdate
