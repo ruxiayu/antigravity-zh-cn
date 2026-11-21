@@ -335,6 +335,9 @@
     if (/^Controls\s+how\s+much\s+time\s+and\s+quota\s+the\s+model\s+spends\s+reasoning\s+before\s+responding\.\s*Higher\s+effort\s+improves\s+accuracy\s+on\s+hard\s+problems,\s*at\s+the\s+cost\s+of\s+slower\s+responses\s+and\s+higher\s+quota\s+use\.?$/i.test(collapsed)) {
       return replaceTrimmed(str, trimmed, '控制模型在回复前用于推理的时间与配额。更高的思考力度可提升难题准确率，但会降低响应速度并消耗更多配额。');
     }
+    if ((m = /^(Built-in|External)\s+Browser\s*\(Default\)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, (m[1].toLowerCase() === 'built-in' ? '内置浏览器' : '外部浏览器') + '（默认）');
+    }
     if (/^Thinking(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
       return replaceTrimmed(str, trimmed, '深度思考' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
     }

@@ -808,6 +808,21 @@ checkEq('v234TriggerEffort', v234Host.children[3].children[0].children[3].textCo
 checkEq('v234ThinkingEffort', v234Host.children[4].textContent, '思考力度');
 checkEq('v234ThinkingEffortTip', v234Host.children[5].textContent, '控制模型在回复前用于推理的时间与配额。更高的思考力度可提升难题准确率，但会降低响应速度并消耗更多配额。');
 
+const v234LinkMenu = el('div', { role: 'menu' }, [
+  el('div', { role: 'menuitem' }, ['Open In']),
+  el('div', { role: 'menuitem' }, ['Copy Link']),
+  el('div', { role: 'menuitem' }, ['Built-in Browser (Default)']),
+  el('div', { role: 'menuitem' }, ['External Browser']),
+  el('div', { role: 'menuitem' }, ['Settings']),
+]);
+rootEl.appendChild(v234LinkMenu);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234LinkMenu] }]);
+checkEq('v234LinkOpenIn', v234LinkMenu.children[0].textContent, '打开方式');
+checkEq('v234LinkCopy', v234LinkMenu.children[1].textContent, '复制链接');
+checkEq('v234LinkBuiltinDefault', v234LinkMenu.children[2].textContent, '内置浏览器（默认）');
+checkEq('v234LinkExternal', v234LinkMenu.children[3].textContent, '外部浏览器');
+checkEq('v234LinkSettings', v234LinkMenu.children[4].textContent, '设置');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const updaterExpectations = blockAutoUpdate
