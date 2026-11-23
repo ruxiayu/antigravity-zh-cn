@@ -344,6 +344,24 @@
     if (/^Limited\s+time(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
       return replaceTrimmed(str, trimmed, '限时' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
     }
+    if (/^Orchestrator\s+Settings$/i.test(normTrimmed)) {
+      return replaceTrimmed(str, trimmed, '编排器设置');
+    }
+    if (/^Orchestrator\s+Model$/i.test(normTrimmed)) {
+      return replaceTrimmed(str, trimmed, '编排器模型');
+    }
+    if (/^Executor\s+Model$/i.test(normTrimmed)) {
+      return replaceTrimmed(str, trimmed, '执行器模型');
+    }
+    if (/^Choose\s+the\s+models\s+Orchestrator\s+uses\.\s*A\s+larger,\s*smarter\s+orchestrator\s+model\s+with\s+a\s+faster,\s*cheaper\s+executor\s+gives\s+high\s+quality\s+for\s+fewer\s+tokens\.?$/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '选择编排器使用的模型。将更强大、更智能的编排器模型与更快、更经济的执行器结合，可在消耗更少 Token 的同时保持高质量。');
+    }
+    if (/^Plans\s+the\s+work,\s*makes\s+design\s+decisions,\s*and\s+reviews\s+the\s+result\.\s*Pick\s+a\s+top-tier\s+model\.\s*You\s+can\s+also\s+pick\s+one\s+per\s+conversation\s+from\s+the\s+Orchestrator\s+row\s+in\s+the\s+model\s+menu\.?$/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '负责规划工作、制定设计决策并审查结果。建议选择顶级模型；您也可以在模型菜单的“编排器”行中为每个对话单独选择。');
+    }
+    if (/^Carries\s+out\s+the\s+plan:\s*searches,\s*edits,\s*builds,\s*and\s+tests\.\s*Pick\s+a\s+faster,\s*cheaper\s+model\.?$/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '负责执行计划：搜索、编辑、构建与测试。建议选择更快、更经济的模型。');
+    }
     if (/^Orchestrator$/i.test(normTrimmed)) {
       return replaceTrimmed(str, trimmed, '编排器');
     }

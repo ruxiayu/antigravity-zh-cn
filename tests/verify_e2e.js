@@ -823,6 +823,23 @@ checkEq('v234LinkBuiltinDefault', v234LinkMenu.children[2].textContent, '内置�
 checkEq('v234LinkExternal', v234LinkMenu.children[3].textContent, '外部浏览器');
 checkEq('v234LinkSettings', v234LinkMenu.children[4].textContent, '设置');
 
+const v234OrchSettings = el('div', {}, [
+  el('h3', {}, ['Orchestrator Settings']),
+  el('p', {}, ['Choose the models Orchestrator uses. A larger, smarter orchestrator model with a faster, cheaper executor gives high quality for fewer tokens.']),
+  el('div', {}, ['Orchestrator Model']),
+  el('p', {}, ['Plans the work, makes design decisions, and reviews the result. Pick a top-tier model. You can also pick one per conversation from the Orchestrator row in the model menu.']),
+  el('div', {}, ['Executor Model']),
+  el('p', {}, ['Carries out the plan: searches, edits, builds, and tests. Pick a faster, cheaper model.']),
+]);
+rootEl.appendChild(v234OrchSettings);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234OrchSettings] }]);
+checkEq('v234OrchSettingsTitle', v234OrchSettings.children[0].textContent, '编排器设置');
+checkEq('v234OrchSettingsDesc', v234OrchSettings.children[1].textContent, '选择编排器使用的模型。将更强大、更智能的编排器模型与更快、更经济的执行器结合，可在消耗更少 Token 的同时保持高质量。');
+checkEq('v234OrchModelTitle', v234OrchSettings.children[2].textContent, '编排器模型');
+checkEq('v234OrchModelDesc', v234OrchSettings.children[3].textContent, '负责规划工作、制定设计决策并审查结果。建议选择顶级模型；您也可以在模型菜单的“编排器”行中为每个对话单独选择。');
+checkEq('v234ExecModelTitle', v234OrchSettings.children[4].textContent, '执行器模型');
+checkEq('v234ExecModelDesc', v234OrchSettings.children[5].textContent, '负责执行计划：搜索、编辑、构建与测试。建议选择更快、更经济的模型。');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const updaterExpectations = blockAutoUpdate
