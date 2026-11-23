@@ -6771,5 +6771,7 @@
   "Orchestrator Model": "编排器模型",
   "Plans the work, makes design decisions, and reviews the result. Pick a top-tier model. You can also pick one per conversation from the Orchestrator row in the model menu.": "负责规划工作、制定设计决策并审查结果。建议选择顶级模型；您也可以在模型菜单的“编排器”行中为每个对话单独选择。",
   "Executor Model": "执行器模型",
-  "Carries out the plan: searches, edits, builds, and tests. Pick a faster, cheaper model.": "负责执行计划：搜索、编辑、构建与测试。建议选择更快、更经济的模型。"
+  "Carries out the plan: searches, edits, builds, and tests. Pick a faster, cheaper model.": "负责执行计划：搜索、编辑、构建与测试。建议选择更快、更经济的模型。",
+  "Compact the conversation now (summarize history to free up the context window).": "立即压缩当前对话（总结历史记录以释放上下文窗口）。",
+  "Compact the conversation now (summarize history to free up the context window)": "立即压缩当前对话（总结历史记录以释放上下文窗口）"
 }

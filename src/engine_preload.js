@@ -758,6 +758,22 @@
       }
     }
 
+    // C2. 模型名称 + 推理档位同节点拼接（例如编排器行中的 "Gemini 4 Neon Extra High" / "Gemini 4 Hydrogen Medium"）
+    const modelEffortMatch = /^(\s*)(.+?\s+)(Extra\s+High|Low|Medium|High|Extra|Max)(\s*\u00b7\s*[A-Za-z0-9.]+)?(\s*)$/i.exec(original);
+    if (modelEffortMatch && el && !exactMap.has(trimmed)) {
+      const inModelUi = Boolean(
+        el.closest('[data-testid*="model-selector"], [data-testid*="effort"], [data-effort], [data-radix-popper-content-wrapper], [data-radix-menu-content], [data-floating-ui-portal], [role="menu"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="listbox"], [role="option"]') ||
+        (el.previousElementSibling && el.previousElementSibling.getAttribute && el.previousElementSibling.getAttribute('data-testid') === 'model-selector-effort-group')
+      );
+      if (inModelUi && /^(?:Gemini|Claude|GPT|Sonnet|Opus|Haiku|Orchestrator|DeepSeek|Qwen|Llama|o[134])\b/i.test(modelEffortMatch[2])) {
+        const efCn = EFFORT_MAP[modelEffortMatch[3].toLowerCase().replace(/\s+/g, ' ')] || modelEffortMatch[3];
+        const prefix = modelEffortMatch[2].replace(/^Orchestrator\b/i, '编排器');
+        const nextVal = modelEffortMatch[1] + prefix + efCn + (modelEffortMatch[4] || '') + modelEffortMatch[5];
+        if (nextVal !== original) node.nodeValue = nextVal;
+        return true;
+      }
+    }
+
     // D. 分裂 DOM 句子片段精准感知 (Plan Review Policy / Modified in / Voice Picker / Remote Control)
     if (el) {
       const parentText = el.textContent || '';

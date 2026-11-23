@@ -801,6 +801,7 @@ rootEl.appendChild(v234Host);
 capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234Host] }]);
 checkEq('v234OffloadTip', v234Host.children[0].textContent, '将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。');
 checkEq('v234OrchSpan', v234Host.children[1].children[0].textContent, '编排器');
+checkEq('v234OrchModelSubSpan', v234Host.children[1].children[1].textContent, 'Gemini 4 Neon 超高');
 checkEq('v234OrchBadge', v234Host.children[1].children[2].textContent, '全新');
 checkEq('v234OrchCombined', v234Host.children[2].textContent, '编排器 Gemini 4 Neon 超高');
 checkEq('v234TriggerAria', v234Host.children[3].getAttribute('aria-label'), '选择模型，当前：编排器 Gemini 4 Neon 超高 · 1M');
@@ -839,6 +840,14 @@ checkEq('v234OrchModelTitle', v234OrchSettings.children[2].textContent, '编排�
 checkEq('v234OrchModelDesc', v234OrchSettings.children[3].textContent, '负责规划工作、制定设计决策并审查结果。建议选择顶级模型；您也可以在模型菜单的“编排器”行中为每个对话单独选择。');
 checkEq('v234ExecModelTitle', v234OrchSettings.children[4].textContent, '执行器模型');
 checkEq('v234ExecModelDesc', v234OrchSettings.children[5].textContent, '负责执行计划：搜索、编辑、构建与测试。建议选择更快、更经济的模型。');
+
+const v234CompactCmd = el('div', { role: 'option' }, [
+  el('span', {}, ['Compact']),
+  el('span', {}, ['Compact the conversation now (summarize history to free up the context window).']),
+]);
+rootEl.appendChild(v234CompactCmd);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234CompactCmd] }]);
+checkEq('v234CompactDesc', v234CompactCmd.children[1].textContent, '立即压缩当前对话（总结历史记录以释放上下文窗口）。');
 
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
