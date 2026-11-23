@@ -1,21 +1,16 @@
-### 本次更新内容（v2.31.6）
+### 本次更新内容（v2.34.0）
 
-- **修复应用内一键下载更新死循环与黑框跳动问题（重大体验优化）**：
-  - **进度条实时平滑刷新**：将下载进度与状态深度绑定至渲染签名流，下载期间 `0% ~ 100%` 实时同步渲染，无需手动关闭/重开设置界面即可查看实时进度；
-  - **彻底告别黑框弹窗**：采用 Windows 原生无窗口隐身调度器（VBScript WScript.Shell 隐身封装），彻底消除子命令（`ping` / `tasklist` / `find`）导致的黑框闪烁与跳出；
-  - **秒级重启与防死循环加固**：热更新触发后主进程采用 `app.exit(0)` 瞬间释放文件占用；后台守护脚本限制最多 4 次轮询强制退出，杜绝死循环，更新完成后秒级静默自动拉起新版客户端；
-- **补齐会话与项目历史相对时间动态中文化（v2.31.5 特性）**：
-  - 深度解析并汉化侧边栏会话和项目树右侧紧凑相对时间缩写：`6h` / `9h` / `20h` $\rightarrow$ `6小时前` / `9小时前` / `20小时前`、`1d` / `3d` / `5d` $\rightarrow$ `1天前` / `3天前` / `5天前`、`5m` / `15m` $\rightarrow$ `5分钟前` / `15分钟前`、`1w` $\rightarrow$ `1周前`、`1mo` $\rightarrow$ `1个月前`、`1y` $\rightarrow$ `1年前`；
-  - 兼容前缀圆点（如 `· 6h` $\rightarrow$ `· 6小时前`）及完整英文短语（如 `9 days ago` $\rightarrow$ `9天前`、`just now` $\rightarrow$ `刚刚`、`yesterday` $\rightarrow$ `昨天` 等）。
-- **跨新老版本自适应注入（已实测兼容 `v2.28.2 ~ v2.31.2`）**：
-  - 修复旧版（如 `v2.28.2`）下 `dist/tray.js` `Identifier 'translations' has already been declared` 语法错误、`dist/ipcHandlers.js` 缺少 `registerWcvIpcHandlers` 锚点回退、以及同目录存在 `.unpacked` 时重放提取报错的问题；
-  - 备份复用校验 `app.asar.original.bak` 与当前客户端版本是否一致，客户端升级后不会误用旧版备份覆盖新版。
-- **默认保留官方右上角「更新可用」通道**：
-  - 默认选项 **`[1]`** 与命令行 `install` 默认保留官方自动更新（`autoDownload` / `autoInstallOnAppQuit` 开启，并直连主进程 `applyHostUpdate()`），点击 Antigravity 右上角官方 **「更新可用」** 即可下载安装新版，并在右下角显示轻量级原生下载进度提示；下载完成后自动重启应用更新。
-  - 官方安装包更新会覆盖 `resources/app.asar`（包括内置汉化与 `提交反馈` 上方状态胶囊）；更新完成后重新运行一次本工具选 **`[1]`**，即可在几秒内为新版 Antigravity 自适应重注全部中文。
-  - 如个别用户仅希望手动控制官方更新，可选用选项 **`[2]`** 或命令行 `--block-auto-update`。
-- **内嵌式设置页更新体验与应用内热更新**：
-  - 状态胶囊（`提交反馈` 上方）与汉化更新卡片仅内嵌在 **设置 -> 通用** 面板中，移除额外悬浮弹窗；新增应用内直接下载新版汉化补丁并一键重启重注能力，并补齐本地热更新备份兼容。
+- **全面适配 Antigravity v2.34.0 新模型与编排器（Orchestrator）体系**：
+  - 完整汉化模型选择器中的 **Orchestrator（编排器）** 标签、模型+档位组合显示（如 `编排器 Gemini 4 Neon 超高` / `中` / `高` / `低`）以及新版分流提示 Tooltip（`Offloads routine steps to a faster executor. Same quality, fewer tokens used.` $\rightarrow$ `将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。`）。
+  - 汉化新增的 **思考力度（Thinking effort）** 子菜单标题及其说明提示。
+  - 完整汉化设置页 **编排器设置（Orchestrator Settings）** 板块（含「编排器模型」与「执行器模型」标题与说明）。
+- **补全高频交互细节汉化**：
+  - 汉化对话中链接点击菜单的 `Open In`（打开方式）、`Built-in Browser (Default)`（内置浏览器（默认））、`External Browser (Default)`（外部浏览器（默认））等子菜单项。
+  - 汉化 `/compact` 斜杠命令说明（`立即压缩当前对话（总结历史记录以释放上下文窗口）。`）。
+- **适配 v2.34.0 新增客户端内核模块**：
+  - 适配新版桌面控制浮窗（`computer/hud.js`、`computer/hudState.js`）的「再次允许（Allow again）」按钮、状态机文案及多智能体控制提示。
+  - 汉化浏览器流采集窗口（`browserStream/capturePage.js`）标题，并完整保留 SSH 远程管理、右键上下文菜单、应用内热更新等全量汉化能力。
+- **质量校验**：全量词典扩充至 **6775 条**，E2E 自动化测试（191 项 DOM 断言 + MutationObserver）与 19 个主进程模块语法检查全部通过。
 
 ---
 
