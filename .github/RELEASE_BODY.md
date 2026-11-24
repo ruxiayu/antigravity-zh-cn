@@ -6,11 +6,12 @@
   - 完整汉化设置页 **编排器设置（Orchestrator Settings）** 板块（含「编排器模型」与「执行器模型」标题与说明）。
 - **补全高频交互细节汉化**：
   - 汉化对话中链接点击菜单的 `Open In`（打开方式）、`Built-in Browser (Default)`（内置浏览器（默认））、`External Browser (Default)`（外部浏览器（默认））等子菜单项。
-  - 汉化 `/compact` 斜杠命令说明（`立即压缩当前对话（总结历史记录以释放上下文窗口）。`）。
+  - 汉化 `/compact` 斜杠命令说明（`立即压缩当前对话（总结历史记录以释放上下文窗口）。`）以及 `mcp-app-development`、`swarm_pane` 等官方内置技能描述与前缀兜底。
+  - 汉化模型选择器 `Leaving Soon`（即将下线）徽章、`For your hardest, long-horizon tasks`（适用于最具挑战性的长程复杂任务）及 `Leaving on <日期>` 动态下线提示框。
 - **适配 v2.34.0 新增客户端内核模块**：
   - 适配新版桌面控制浮窗（`computer/hud.js`、`computer/hudState.js`）的「再次允许（Allow again）」按钮、状态机文案及多智能体控制提示。
   - 汉化浏览器流采集窗口（`browserStream/capturePage.js`）标题，并完整保留 SSH 远程管理、右键上下文菜单、应用内热更新等全量汉化能力。
-- **质量校验**：全量词典扩充至 **6775 条**，E2E 自动化测试（191 项 DOM 断言 + MutationObserver）与 19 个主进程模块语法检查全部通过。
+- **质量校验**：全量词典扩充至 **6785 条**，E2E 自动化测试（200 项 DOM 断言 + MutationObserver）与 19 个主进程模块语法检查全部通过。
 
 ---
 

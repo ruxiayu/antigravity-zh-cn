@@ -344,6 +344,24 @@
     if (/^Limited\s+time(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
       return replaceTrimmed(str, trimmed, '限时' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
     }
+    if (/^Leaving\s+Soon(?:\s*[ⓘℹ])?$/i.test(trimmed)) {
+      return replaceTrimmed(str, trimmed, '即将下线' + (/[ⓘℹ]/.test(trimmed) ? ' ⓘ' : ''));
+    }
+    if ((m = /^Use\s+(.+?)\s+for\s+better\s+quality\s+with\s+lower\s+quota\s+usage\.?(?:\s+Leaving\s+on\s+([^.]+?)\.?)?$/i.exec(collapsed))) {
+      const base = '建议使用 ' + m[1] + '，以更低的配额消耗获得更高质量。';
+      return replaceTrimmed(str, trimmed, m[2] ? base + '将于 ' + formatEnDateStr(m[2]) + ' 下线。' : base);
+    }
+    if ((m = /^(.+?)\.\s+Leaving\s+on\s+([^.]+?)\.?$/i.exec(collapsed))) {
+      const lead = m[1].trim();
+      const leadCn = exactMap.get(lead + '.') || exactMap.get(lead) || lowerMap.get((lead + '.').toLowerCase()) || lowerMap.get(lead.toLowerCase());
+      if (leadCn) {
+        const leadFormatted = /[。！？.!?]$/.test(leadCn) ? leadCn : (leadCn + '。');
+        return replaceTrimmed(str, trimmed, leadFormatted + '将于 ' + formatEnDateStr(m[2]) + ' 下线。');
+      }
+    }
+    if ((m = /^Leaving\s+on\s+([^.]+?)\.?$/i.exec(collapsed))) {
+      return replaceTrimmed(str, trimmed, '将于 ' + formatEnDateStr(m[1]) + ' 下线。');
+    }
     if (/^Orchestrator\s+Settings$/i.test(normTrimmed)) {
       return replaceTrimmed(str, trimmed, '编排器设置');
     }
@@ -680,6 +698,15 @@
     }
     if (/^Discover UI plugin panels relevant to the current task and surface a one-click pill/i.test(collapsed)) {
       return replaceTrimmed(str, trimmed, '发现与当前任务相关的 UI 插件面板，并在对话中显示一键切换按钮以便在侧边栏中打开或收起。当运行中的 UI 插件面板有助当前操作，或刚启用新面板需要快捷入口时使用。');
+    }
+    if (/^Build, package, and debug MCP Apps for Antigravity:/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '为 Antigravity 构建、打包与调试 MCP 应用：让 MCP 服务器工具的返回结果以交互式 UI 形式渲染在对话、侧边栏面板或全页视图中。当需要为 MCP 工具添加界面、开发或定制应用主题、打包为插件，或排查渲染与行为异常时使用。');
+    }
+    if (/^What the coordinator writes so the Swarm UI's Overview can show the swarm's goal/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '供协调者编写的状态说明规范，用于让集群界面的“概览”展示集群目标、工作分组与截图时间线。请在向集群分派简报并添加首批成员前加载。');
+    }
+    if (/^Guidelines for interacting with GitHub and request permissions from the user/i.test(collapsed)) {
+      return replaceTrimmed(str, trimmed, '与 GitHub 交互的操作准则，当命令因智能体环境限制执行失败时向用户申请授权。');
     }
 
     // 5. 常见操作短语兜底

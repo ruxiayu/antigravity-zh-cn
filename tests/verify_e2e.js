@@ -849,6 +849,43 @@ rootEl.appendChild(v234CompactCmd);
 capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234CompactCmd] }]);
 checkEq('v234CompactDesc', v234CompactCmd.children[1].textContent, '立即压缩当前对话（总结历史记录以释放上下文窗口）。');
 
+const v234BuiltinSkills = el('div', {}, [
+  el('div', { role: 'option' }, [
+    el('span', {}, ['mcp-app-development']),
+    el('span', {}, ['Build, package, and debug MCP Apps for Antigravity:\nMCP server tools whose results render as interactive UI in the conversation...']),
+  ]),
+  el('div', { role: 'option' }, [
+    el('span', {}, ['swarm_pane']),
+    el('span', {}, ["What the coordinator writes so the Swarm UI's Overview can show the swarm's goal,\nits groups of work and a screenshot timeline..."]),
+  ]),
+  el('div', { role: 'option' }, [
+    el('span', {}, ['permissioned-github']),
+    el('span', {}, ['Guidelines for interacting with GitHub and request permissions from the user\nwhen commands fail due to restrictions...']),
+  ]),
+]);
+rootEl.appendChild(v234BuiltinSkills);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234BuiltinSkills] }]);
+checkEq('v234SkillMcpApp', v234BuiltinSkills.children[0].children[1].textContent, '为 Antigravity 构建、打包与调试 MCP 应用：让 MCP 服务器工具的返回结果以交互式 UI 形式渲染在对话、侧边栏面板或全页视图中。当需要为 MCP 工具添加界面、开发或定制应用主题、打包为插件，或排查渲染与行为异常时使用。');
+checkEq('v234SkillSwarmPane', v234BuiltinSkills.children[1].children[1].textContent, '供协调者编写的状态说明规范，用于让集群界面的“概览”展示集群目标、工作分组与截图时间线。请在向集群分派简报并添加首批成员前加载。');
+checkEq('v234SkillPermGithub', v234BuiltinSkills.children[2].children[1].textContent, '与 GitHub 交互的操作准则，当命令因智能体环境限制执行失败时向用户申请授权。');
+
+const v234ModelLeaving = el('div', {}, [
+  el('span', { class: 'rounded-full' }, ['Leaving Soon']),
+  el('span', { class: 'rounded-full' }, ['Leaving Soon ⓘ']),
+  el('div', { role: 'tooltip' }, ['Use Hydrogen for better quality\nwith lower quota usage. Leaving on\nNov 30.']),
+  el('div', { role: 'tooltip' }, ['The original Gemini 4 model for\nadvanced workflows. Leaving on\nNov 30.']),
+  el('div', { role: 'tooltip' }, ['For your hardest, long-horizon\ntasks']),
+  el('div', { role: 'tooltip' }, ['Leaving on Nov 30.']),
+]);
+rootEl.appendChild(v234ModelLeaving);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234ModelLeaving] }]);
+checkEq('v234LeavingBadge', v234ModelLeaving.children[0].textContent, '即将下线');
+checkEq('v234LeavingBadgeIcon', v234ModelLeaving.children[1].textContent, '即将下线 ⓘ');
+checkEq('v234UseHydrogenLeaving', v234ModelLeaving.children[2].textContent, '建议使用 Hydrogen，以更低的配额消耗获得更高质量。将于 11 月 30 日 下线。');
+checkEq('v234OrigGemini4Leaving', v234ModelLeaving.children[3].textContent, '面向高级工作流的经典 Gemini 4 模型。将于 11 月 30 日 下线。');
+checkEq('v234HardestLongHorizon', v234ModelLeaving.children[4].textContent, '适用于最具挑战性的长程复杂任务');
+checkEq('v234LeavingStandalone', v234ModelLeaving.children[5].textContent, '将于 11 月 30 日 下线。');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const updaterExpectations = blockAutoUpdate
@@ -880,7 +917,13 @@ if (distDir) {
     'remote/remoteManager.js': ["title: '选择 SSH 配置文件'", "title: '停止 SSH 服务'", "title: '重启 SSH 服务'", "title: '麦克风权限'"],
     'remote/disconnectedPage.js': ["reconnect: '重新连接'", "stop: '停止服务'", "close: '关闭'", ": '连接已断开';"],
     'remote/sshPrompts.js': ['>取消</button>', '>继续</button>', "buttons: confirm ? ['是', '否'] : ['取消'],"],
-    'computer/hud.js': ['<title>AGY 桌面控制浮窗</title>', '<button id="stop">停止</button><button id="resume">恢复</button>'],
+    'computer/hud.js': [
+      '<title>AGY 桌面控制浮窗</title>',
+      [
+        '<button id="stop">停止</button><button id="resume">恢复</button>',
+        '<button id="stop">停止</button><button id="resume" title="允许智能体再次使用此 Mac。已停止的任务不会重新启动。">再次允许</button>',
+      ],
+    ],
   };
   for (const [rel, needles] of Object.entries(optionalV233Modules)) {
     const full = path.join(distDir, rel);
@@ -888,7 +931,11 @@ if (distDir) {
     execFileSync('node', ['--check', full]);
     const content = fs.readFileSync(full, 'utf8');
     for (const n of needles) {
-      assert(content.includes(n), `Missing expected v2.33.0 localization in dist/${rel}: ${n}`);
+      if (Array.isArray(n)) {
+        assert(n.some((alt) => content.includes(alt)), `Missing expected v2.33+/v2.34 localization in dist/${rel}: ${n.join(' OR ')}`);
+      } else {
+        assert(content.includes(n), `Missing expected v2.33.0 localization in dist/${rel}: ${n}`);
+      }
     }
   }
 
