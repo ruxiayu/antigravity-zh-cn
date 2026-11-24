@@ -1,4 +1,4 @@
-### 本次更新内容（v2.34.0）
+### 本次更新内容（v2.34.1）
 
 - **全面适配 Antigravity v2.34.0 新模型与编排器（Orchestrator）体系**：
   - 完整汉化模型选择器中的 **Orchestrator（编排器）** 标签、模型+档位组合显示（如 `编排器 Gemini 4 Neon 超高` / `中` / `高` / `低`）以及新版分流提示 Tooltip（`Offloads routine steps to a faster executor. Same quality, fewer tokens used.` $\rightarrow$ `将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。`）。
