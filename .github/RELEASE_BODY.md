@@ -1,17 +1,12 @@
-### 本次更新内容（v2.34.1）
+### 本次更新内容（v2.34.2）
 
-- **全面适配 Antigravity v2.34.0 新模型与编排器（Orchestrator）体系**：
-  - 完整汉化模型选择器中的 **Orchestrator（编排器）** 标签、模型+档位组合显示（如 `编排器 Gemini 4 Neon 超高` / `中` / `高` / `低`）以及新版分流提示 Tooltip（`Offloads routine steps to a faster executor. Same quality, fewer tokens used.` $\rightarrow$ `将常规步骤分流至更快的执行器。保持同等质量，消耗更少 Token。`）。
-  - 汉化新增的 **思考力度（Thinking effort）** 子菜单标题及其说明提示。
-  - 完整汉化设置页 **编排器设置（Orchestrator Settings）** 板块（含「编排器模型」与「执行器模型」标题与说明）。
-- **补全高频交互细节汉化**：
-  - 汉化对话中链接点击菜单的 `Open In`（打开方式）、`Built-in Browser (Default)`（内置浏览器（默认））、`External Browser (Default)`（外部浏览器（默认））等子菜单项。
-  - 汉化 `/compact` 斜杠命令说明（`立即压缩当前对话（总结历史记录以释放上下文窗口）。`）以及 `mcp-app-development`、`swarm_pane` 等官方内置技能描述与前缀兜底。
-  - 汉化模型选择器 `Leaving Soon`（即将下线）徽章、`For your hardest, long-horizon tasks`（适用于最具挑战性的长程复杂任务）及 `Leaving on <日期>` 动态下线提示框。
-- **适配 v2.34.0 新增客户端内核模块**：
-  - 适配新版桌面控制浮窗（`computer/hud.js`、`computer/hudState.js`）的「再次允许（Allow again）」按钮、状态机文案及多智能体控制提示。
-  - 汉化浏览器流采集窗口（`browserStream/capturePage.js`）标题，并完整保留 SSH 远程管理、右键上下文菜单、应用内热更新等全量汉化能力。
-- **质量校验**：全量词典扩充至 **6785 条**，E2E 自动化测试（200 项 DOM 断言 + MutationObserver）与 19 个主进程模块语法检查全部通过。
+- **补全队列消息（Queued Messages）等待发送区域汉化**：
+  - 完整汉化输入框上方排队卡片提示 `Sends after agent finishes working` $\rightarrow$ `智能体工作完成后发送`。
+  - 补全排队卡片折叠/展开无障碍标签（`Collapse/Expand queued messages`）、操作按钮动态提示（`Send now:`、`Edit:`、`Delete:`）、附件计数（`+N attachments` / `N attachment(s)`）、`review comments` / `empty message` 及排队状态通知文案。
+  - 修正旧词典中 `Failed to send queued message` 与 `Unable to add element to queue` 的中英混杂译文。
+- **继承 v2.34.x 全量适配能力**：
+  - 完整支持 Antigravity v2.34.0 新模型与编排器（Orchestrator）体系、思考力度、链接打开方式、内置技能描述兜底、`Leaving Soon` / `Leaving on` 下线提示、新版桌面控制浮窗及应用内一键热更新。
+- **质量校验**：全量词典扩充至 **6799 条**，E2E 自动化测试（212 项 DOM 断言 + MutationObserver）与 19 个主进程模块语法检查全部通过。
 
 ---
 

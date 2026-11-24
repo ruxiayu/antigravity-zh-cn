@@ -603,6 +603,28 @@
       const actCn = m[1].toLowerCase().startsWith('send') ? '发送消息 ' : '加入消息队列 ';
       return replaceTrimmed(str, trimmed, actCn + m[2]);
     }
+    if (/^Sends after agent finishes working\.?$/i.test(normTrimmed)) {
+      return replaceTrimmed(str, trimmed, '智能体工作完成后发送');
+    }
+    if ((m = /^Send now:\s*([\s\S]+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '立即发送：' + m[1]);
+    }
+    if ((m = /^Edit:\s*([\s\S]+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '编辑：' + m[1]);
+    }
+    if ((m = /^Delete:\s*([\s\S]+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '删除：' + m[1]);
+    }
+    if ((m = /^\+([0-9]+)\s*attachments?$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '+' + m[1] + ' 个附件');
+    }
+    if ((m = /^([0-9]+)\s*attachment\(s\)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, m[1] + ' 个附件');
+    }
+    if ((m = /^Message queued\.\s*(?:([0-9]+)\s*messages in queue\.)?\s*Sends after agent finishes working\.\s*Actions available:\s*Send Now,\s*Edit,\s*Delete\.?$/i.exec(normTrimmed))) {
+      const qPart = m[1] ? ('队列中有 ' + m[1] + ' 条消息。') : '';
+      return replaceTrimmed(str, trimmed, '消息已加入队列。' + qPart + '智能体工作完成后发送。可用操作：立即发送、编辑、删除。');
+    }
     if ((m = /^(Record Audio|Stop Recording)\s+((?:Ctrl|Cmd|Alt|Shift|\u2318|\u2325|\u21e7|\u2303)[^\s]*)$/i.exec(normTrimmed))) {
       const recCn = m[1].toLowerCase().startsWith('record') ? '录制语音 ' : '停止录音 ';
       return replaceTrimmed(str, trimmed, recCn + m[2]);

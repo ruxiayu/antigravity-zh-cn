@@ -886,6 +886,53 @@ checkEq('v234OrigGemini4Leaving', v234ModelLeaving.children[3].textContent, '面
 checkEq('v234HardestLongHorizon', v234ModelLeaving.children[4].textContent, '适用于最具挑战性的长程复杂任务');
 checkEq('v234LeavingStandalone', v234ModelLeaving.children[5].textContent, '将于 11 月 30 日 下线。');
 
+// Queued messages header and decorators verification
+const qTitle = el('span', { class: 'shrink-0' }, ['Queued Messages']);
+const qSub = el('span', { class: 'min-w-0 text-muted-foreground overflow-hidden text-ellipsis font-normal' }, ['Sends after agent finishes working']);
+const qCollapse = el('button', { 'aria-label': 'Collapse queued messages' });
+const qExpand = el('button', { 'aria-label': 'Expand queued messages' });
+const qSend = el('button', { 'aria-label': 'Send now: test query', title: 'Send Now' });
+const qEdit = el('button', { 'aria-label': 'Edit: test query', title: 'Edit' });
+const qDelete = el('button', { 'aria-label': 'Delete: test query', title: 'Delete' });
+const qAtt1 = el('span', {}, ['+2 attachments']);
+const qAtt2 = el('span', {}, ['3 attachment(s)']);
+const qRev = el('span', {}, ['review comments']);
+const qEmpty = el('span', {}, ['empty message']);
+
+const queuedCardEl = el('div', { role: 'region', 'aria-label': 'Queued messages' }, [
+  el('div', { class: 'flex items-center gap-1.5 min-w-0' }, [
+    qTitle,
+    el('span', { class: 'shrink-0' }, ['1']),
+    qSub,
+  ]),
+  qCollapse,
+  qExpand,
+  el('div', { 'data-testid': 'queued-decorators' }, [
+    qSend,
+    qEdit,
+    qDelete,
+  ]),
+  qAtt1,
+  qAtt2,
+  qRev,
+  qEmpty,
+]);
+rootEl.appendChild(queuedCardEl);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [queuedCardEl] }]);
+
+checkEq('qTitle', qTitle.textContent, '队列消息');
+checkEq('qSub', qSub.textContent, '智能体工作完成后发送');
+checkEq('qCollapse', qCollapse.getAttribute('aria-label'), '折叠队列消息');
+checkEq('qExpand', qExpand.getAttribute('aria-label'), '展开队列消息');
+checkEq('qSendAria', qSend.getAttribute('aria-label'), '立即发送：test query');
+checkEq('qSendTitle', qSend.getAttribute('title'), '立即发送');
+checkEq('qEditAria', qEdit.getAttribute('aria-label'), '编辑：test query');
+checkEq('qDeleteAria', qDelete.getAttribute('aria-label'), '删除：test query');
+checkEq('qAtt1', qAtt1.textContent, '+2 个附件');
+checkEq('qAtt2', qAtt2.textContent, '3 个附件');
+checkEq('qRev', qRev.textContent, '审查批注');
+checkEq('qEmpty', qEmpty.textContent, '空消息');
+
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {
   const updaterExpectations = blockAutoUpdate
