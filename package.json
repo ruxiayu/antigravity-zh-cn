@@ -1,6 +1,6 @@
 {
   "name": "antigravity-zh-cn",
-  "version": "2.34.2",
+  "version": "2.34.3",
   "description": "Deep Simplified Chinese localization patcher and dynamic DOM translation engine for Antigravity IDE",
   "private": true,
   "license": "MIT",

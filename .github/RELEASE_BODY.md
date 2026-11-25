@@ -1,12 +1,10 @@
-### 本次更新内容（v2.34.2）
+### 本次更新内容（v2.34.3）
 
-- **补全队列消息（Queued Messages）等待发送区域汉化**：
-  - 完整汉化输入框上方排队卡片提示 `Sends after agent finishes working` $\rightarrow$ `智能体工作完成后发送`。
-  - 补全排队卡片折叠/展开无障碍标签（`Collapse/Expand queued messages`）、操作按钮动态提示（`Send now:`、`Edit:`、`Delete:`）、附件计数（`+N attachments` / `N attachment(s)`）、`review comments` / `empty message` 及排队状态通知文案。
-  - 修正旧词典中 `Failed to send queued message` 与 `Unable to add element to queue` 的中英混杂译文。
-- **继承 v2.34.x 全量适配能力**：
-  - 完整支持 Antigravity v2.34.0 新模型与编排器（Orchestrator）体系、思考力度、链接打开方式、内置技能描述兜底、`Leaving Soon` / `Leaving on` 下线提示、新版桌面控制浮窗及应用内一键热更新。
-- **质量校验**：全量词典扩充至 **6799 条**，E2E 自动化测试（212 项 DOM 断言 + MutationObserver）与 19 个主进程模块语法检查全部通过。
+- **补全智能体运行期间模型选择器悬浮提示汉化**：
+  - 新增 `Model cannot be changed while the agent is running` $\rightarrow$ `智能体运行期间无法切换模型`（同步收录带句号版本）。
+- **继承 v2.34.2 及全量适配能力**：
+  - 完整支持队列消息（Queued Messages）等待发送区、Antigravity 新模型与编排器（Orchestrator）体系、思考力度、链接打开方式、内置技能描述兜底、`Leaving Soon` / `Leaving on` 下线提示、新版桌面控制浮窗及应用内一键热更新。
+- **质量校验**：全量词典扩充至 **6801 条**，E2E 自动化测试（213 项 DOM 断言 + MutationObserver）与主进程模块语法检查全部通过。
 
 ---
 

@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Callable
 
-PATCH_VERSION = "2.34.2"
+PATCH_VERSION = "2.34.3"
 REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
 
 PRELOAD_MARKERS = (

@@ -6797,5 +6797,7 @@
   "It was already sent or couldn't be removed from the queue.": "消息已发送或无法从队列中移除。",
   "Instead of queueing, try asking the agent to do something after the current task.": "无需排队，您可以在当前任务完成后再要求智能体执行。",
   "review comments": "审查批注",
-  "empty message": "空消息"
+  "empty message": "空消息",
+  "Model cannot be changed while the agent is running": "智能体运行期间无法切换模型",
+  "Model cannot be changed while the agent is running.": "智能体运行期间无法切换模型。"
 }

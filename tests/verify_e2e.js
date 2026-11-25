@@ -876,6 +876,7 @@ const v234ModelLeaving = el('div', {}, [
   el('div', { role: 'tooltip' }, ['The original Gemini 4 model for\nadvanced workflows. Leaving on\nNov 30.']),
   el('div', { role: 'tooltip' }, ['For your hardest, long-horizon\ntasks']),
   el('div', { role: 'tooltip' }, ['Leaving on Nov 30.']),
+  el('div', { role: 'tooltip' }, ['Model cannot be changed while the agent is running']),
 ]);
 rootEl.appendChild(v234ModelLeaving);
 capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234ModelLeaving] }]);
@@ -885,6 +886,7 @@ checkEq('v234UseHydrogenLeaving', v234ModelLeaving.children[2].textContent, '建
 checkEq('v234OrigGemini4Leaving', v234ModelLeaving.children[3].textContent, '面向高级工作流的经典 Gemini 4 模型。将于 11 月 30 日 下线。');
 checkEq('v234HardestLongHorizon', v234ModelLeaving.children[4].textContent, '适用于最具挑战性的长程复杂任务');
 checkEq('v234LeavingStandalone', v234ModelLeaving.children[5].textContent, '将于 11 月 30 日 下线。');
+checkEq('v234ModelLockedRunning', v234ModelLeaving.children[6].textContent, '智能体运行期间无法切换模型');
 
 // Queued messages header and decorators verification
 const qTitle = el('span', { class: 'shrink-0' }, ['Queued Messages']);
