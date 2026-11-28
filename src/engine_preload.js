@@ -684,6 +684,68 @@
       return replaceTrimmed(str, trimmed, '未命名技能 ' + m[1]);
     }
 
+    // 4.8.1 v2.36.0 新增动态模板（悬浮输入胶囊、应用菜单、自定义展开、队列等待与文件视图）
+    if ((m = /^([0-9]+)\s+tasks?\s+running$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, m[1] + ' 个任务运行中');
+    }
+    if ((m = /^(.+?)\s*\u2014\s*restore\s+split\s+view$/i.exec(normTrimmed))) {
+      const prefixCn = translateText(m[1].trim());
+      return replaceTrimmed(str, trimmed, prefixCn + ' — 恢复分栏视图');
+    }
+    if ((m = /^See\s+([0-9]+)\s+more(?:\s+(.+))?$/i.exec(normTrimmed))) {
+      if (!m[2]) {
+        return replaceTrimmed(str, trimmed, '展开其余 ' + m[1] + ' 项');
+      }
+      if (/^plugins?$/i.test(m[2].trim())) {
+        return replaceTrimmed(str, trimmed, '展开其余 ' + m[1] + ' 个插件');
+      }
+      const tail = m[2].trim();
+      const tailCn = exactMap.get(tail) || lowerMap.get(tail.toLowerCase()) || tail;
+      return replaceTrimmed(str, trimmed, '展开其余 ' + m[1] + ' ' + tailCn);
+    }
+    if ((m = /^See\s+(more|less)\s+in\s+(.+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, m[1].toLowerCase() === 'more' ? ('在 ' + m[2] + ' 中查看更多') : ('收起 ' + m[2] + ' 中的更多内容'));
+    }
+    if ((m = /^Version\s+([0-9]+\.[0-9][A-Za-z0-9.+_-]*)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '版本 ' + m[1]);
+    }
+    if ((m = /^Connect\s+an\s+account\s+for\s+(.+?)\s+so\s+the\s+agent\s+can\s+run\s+automations\.?$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '请为 ' + m[1] + ' 连接账户，以便智能体运行自动化任务。');
+    }
+    if ((m = /^Waiting\s+on\s+(.+)$/i.exec(normTrimmed))) {
+      const waitTarget = m[1].trim();
+      if (/^background\s+work$/i.test(waitTarget)) {
+        return replaceTrimmed(str, trimmed, '等待后台工作完成');
+      }
+      const formatted = waitTarget
+        .replace(/\b([0-9]+)\s+subagents?\b/gi, '$1 个子智能体')
+        .replace(/\b([0-9]+)\s+background\s+tasks?\b/gi, '$1 个后台任务')
+        .replace(/(\u4e2a(?:\u5b50\u667a\u80fd\u4f53|\u540e\u53f0\u4efb\u52a1))\s+and\s+/g, '$1与 ')
+        .replace(/,\s*\+([0-9]+)\s+more$/i, ' 等共 +$1 项');
+      return replaceTrimmed(str, trimmed, '等待 ' + formatted);
+    }
+    if ((m = /^Select\s+Sidebar\s+Item\s+([0-9]+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '选择侧边栏第 ' + m[1] + ' 项');
+    }
+    if ((m = /^([0-9]+)\s+files?\s+changed$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, m[1] + ' 个文件已更改');
+    }
+    if ((m = /^([0-9]+)\s+cookies?$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, m[1] + ' 个 Cookie');
+    }
+    if ((m = /^No\s+matching\s+languages\s+for\s+"([^"]+)"\.?$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '未找到与“' + m[1] + '”匹配的语言');
+    }
+    if ((m = /^You're\s+signing\s+in\s+on\s+(.+?)\.\s*Your\s+sign-in\s+stays\s+on\s+that\s+machine\.?$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '您正在 ' + m[1] + ' 上登录，登录状态将保留在该设备上。');
+    }
+    if ((m = /^All\s+([0-9]+)\s+will\s+be\s+revoked\.\s*The\s+plugin\s+will\s+ask\s+before\s+doing\s+this\s+again\.?$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '全部 ' + m[1] + ' 项权限都将被撤销。此插件下次执行相关操作前会重新询问。');
+    }
+    if ((m = /^Step\s+([0-9]+)\s+of\s+([0-9]+)$/i.exec(normTrimmed))) {
+      return replaceTrimmed(str, trimmed, '第 ' + m[1] + ' / ' + m[2] + ' 步');
+    }
+
     // 4.9 内置技能描述前缀兜底（防止长文本截断或换行差异导致漏译）
     if (/^Comprehensive guide and reference for the Antigravity Customization System\./i.test(collapsed)) {
       return replaceTrimmed(str, trimmed, 'Antigravity 自定义扩展系统的完整指南与技术参考。用于阐述自定义项的工作机制、加载优先级、自动发现机制，并指导技能、规则、插件、钩子及 MCP 服务器创建。');
@@ -1010,6 +1072,18 @@
       }
       if (trimmed === '. Would you like to continue using it or make a new one?') {
         node.nodeValue = replaceTrimmed(original, trimmed, '中。您想继续使用该项目，还是创建一个新项目？');
+        return true;
+      }
+      if (/^Comments?$/i.test(trimmed) && el.closest('[data-testid="aux-pane-floating-composer-comment-badge"]')) {
+        node.nodeValue = replaceTrimmed(original, trimmed, '条评论');
+        return true;
+      }
+      if (/^Attached$/i.test(trimmed) && el.closest('[data-testid="aux-pane-floating-composer-attachment-badge"]')) {
+        node.nodeValue = replaceTrimmed(original, trimmed, '个附件');
+        return true;
+      }
+      if (trimmed === 'Please verify your account to continue using') {
+        node.nodeValue = replaceTrimmed(original, trimmed, '请先验证您的账户以继续使用');
         return true;
       }
     }

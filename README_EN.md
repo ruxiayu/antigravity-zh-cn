@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-> A free, open-source Simplified Chinese localization tool for **Antigravity**. **No Python or Node.js required** with the standalone release—just download, run, and patch (tested on `v2.28.2 ~ v2.31.2`). Original files are backed up automatically so you can restore anytime.
+> A free, open-source Simplified Chinese localization tool for **Antigravity**. **No Python or Node.js required** with the standalone release—just download, run, and patch (tested on `v2.28.2 ~ v2.36.0`). Original files are backed up automatically so you can restore anytime.
 
 ---
 
@@ -89,7 +89,7 @@ node tests/verify_e2e.js --dist-dir "/path/to/extracted/dist"
 
 ### 4. Architecture Overview
 
-- Includes a **6,658-entry** UI dictionary (`dict/master_merged_dict.json`), a dynamic Shadow DOM & regex translation engine (`src/engine_preload.js`), native main-process patches (`src/patches_main.py`), and a pure-Python ASAR codec (`src/asar_codec.py`) with SHA-256 verification.
+- Includes a **6,960-entry** UI dictionary (`dict/master_merged_dict.json`), a dynamic Shadow DOM & regex translation engine (`src/engine_preload.js`), native main-process patches (`src/patches_main.py`), and a pure-Python ASAR codec (`src/asar_codec.py`) with SHA-256 verification.
 
 </details>
 

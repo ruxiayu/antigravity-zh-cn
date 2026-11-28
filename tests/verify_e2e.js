@@ -877,6 +877,8 @@ const v234ModelLeaving = el('div', {}, [
   el('div', { role: 'tooltip' }, ['For your hardest, long-horizon\ntasks']),
   el('div', { role: 'tooltip' }, ['Leaving on Nov 30.']),
   el('div', { role: 'tooltip' }, ['Model cannot be changed while the agent is running']),
+  el('div', { role: 'tooltip' }, ['Permissions cannot be changed while the agent is\nrunning']),
+  el('div', { role: 'tooltip' }, ['Applies to /btw and messages sent after this turn']),
 ]);
 rootEl.appendChild(v234ModelLeaving);
 capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v234ModelLeaving] }]);
@@ -887,6 +889,8 @@ checkEq('v234OrigGemini4Leaving', v234ModelLeaving.children[3].textContent, '面
 checkEq('v234HardestLongHorizon', v234ModelLeaving.children[4].textContent, '适用于最具挑战性的长程复杂任务');
 checkEq('v234LeavingStandalone', v234ModelLeaving.children[5].textContent, '将于 11 月 30 日 下线。');
 checkEq('v234ModelLockedRunning', v234ModelLeaving.children[6].textContent, '智能体运行期间无法切换模型');
+checkEq('v234PermLockedRunning', v234ModelLeaving.children[7].textContent, '智能体运行期间无法更改权限');
+checkEq('v234ModelAppliesBtw', v234ModelLeaving.children[8].textContent, '适用于 /btw 及本轮之后发送的消息');
 
 // Queued messages header and decorators verification
 const qTitle = el('span', { class: 'shrink-0' }, ['Queued Messages']);
@@ -934,6 +938,52 @@ checkEq('qAtt1', qAtt1.textContent, '+2 个附件');
 checkEq('qAtt2', qAtt2.textContent, '3 个附件');
 checkEq('qRev', qRev.textContent, '审查批注');
 checkEq('qEmpty', qEmpty.textContent, '空消息');
+
+// v2.36.0 Floating Composer Pill, App Logo Menu, Customizations, Cloud Automations & File Viewer checks
+const v236StatusBtn = el('button', {
+  'data-testid': 'aux-pane-floating-composer-status',
+  'aria-label': '3 tasks running \u2014 restore split view',
+  title: 'Subagent needs approval',
+}, ['Unread message']);
+const v236CommentBadge = el('span', { 'data-testid': 'aux-pane-floating-composer-comment-badge' }, ['2', ' Comments']);
+const v236AttachBadge = el('span', { 'data-testid': 'aux-pane-floating-composer-attachment-badge' }, ['1', ' Attached']);
+const v236AppMenuBtn = el('button', { 'aria-label': 'Application Menu' }, ['Update Available']);
+const v236Host = el('div', {}, [
+  v236StatusBtn,
+  v236CommentBadge,
+  v236AttachBadge,
+  v236AppMenuBtn,
+  el('span', {}, ['Version 2.36.0']),
+  el('button', {}, ['See more']),
+  el('button', {}, ['See 12 more plugins']),
+  el('div', { role: 'tooltip' }, ['Plugins are disabled by your organization.']),
+  el('div', {}, ['Organization prepaid wallet is empty']),
+  el('span', {}, ['Connect an account for GitHub, Slack so the agent can run automations.']),
+  el('span', {}, ['Waiting on 1 subagent and 2 background tasks: Build, Test, +1 more']),
+  el('div', { role: 'tooltip' }, ['Applies to messages sent after this turn']),
+  el('button', { 'aria-label': 'Switch to RTL text direction' }),
+  el('button', { title: 'Enable Word Wrap (Alt+Z)' }),
+]);
+rootEl.appendChild(v236Host);
+capturedObserver.cb([{ type: 'childList', target: rootEl, addedNodes: [v236Host] }]);
+
+checkEq('v236FloatStatusAria', v236StatusBtn.getAttribute('aria-label'), '3 个任务运行中 — 恢复分栏视图');
+checkEq('v236FloatStatusTitle', v236StatusBtn.getAttribute('title'), '子智能体等待审批');
+checkEq('v236FloatStatusUnread', v236StatusBtn.textContent, '未读消息');
+checkEq('v236CommentBadge', v236CommentBadge.textContent, '2 条评论');
+checkEq('v236AttachBadge', v236AttachBadge.textContent, '1 个附件');
+checkEq('v236AppMenuAria', v236AppMenuBtn.getAttribute('aria-label'), '应用菜单');
+checkEq('v236AppMenuUpdate', v236AppMenuBtn.textContent, '有可用更新');
+checkEq('v236VersionLabel', v236Host.children[4].textContent, '版本 2.36.0');
+checkEq('v236SeeMore', v236Host.children[5].textContent, '查看更多');
+checkEq('v236SeeMorePlugins', v236Host.children[6].textContent, '展开其余 12 个插件');
+checkEq('v236OrgDisabledTip', v236Host.children[7].textContent, '您的组织已禁用插件功能。');
+checkEq('v236PrepaidEmpty', v236Host.children[8].textContent, '组织预付费账户余额已用尽');
+checkEq('v236CloudOauth', v236Host.children[9].textContent, '请为 GitHub, Slack 连接账户，以便智能体运行自动化任务。');
+checkEq('v236WaitingOnSub', v236Host.children[10].textContent, '等待 1 个子智能体与 2 个后台任务: Build, Test 等共 +1 项');
+checkEq('v236AppliesAfterTurn', v236Host.children[11].textContent, '适用于本轮之后发送的消息');
+checkEq('v236RtlAria', v236Host.children[12].getAttribute('aria-label'), '切换为从右到左（RTL）文本方向');
+checkEq('v236WordWrapTitle', v236Host.children[13].getAttribute('title'), '启用自动换行 (Alt+Z)');
 
 // Optional main-process verification when --dist-dir is provided (e.g. built from real ASAR)
 if (distDir) {

@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Callable
 
-PATCH_VERSION = "2.34.3"
+PATCH_VERSION = "2.36.0"
 REPO_URL = "https://github.com/ruxiayu/antigravity-zh-cn"
 
 PRELOAD_MARKERS = (
@@ -53,6 +53,10 @@ const menuTranslationMap = {
   'Actual Size': '实际大小',
   'Zoom In': '放大',
   'Zoom Out': '缩小',
+  'Zoom': '缩放',
+  'Reset Zoom': '重置缩放',
+  'Create Project': '创建项目',
+  'Open Command Palette': '打开命令面板',
   'Toggle Full Screen': '切换全屏',
   'Services': '服务',
   'Hide Antigravity': '隐藏 Antigravity',
@@ -187,6 +191,13 @@ const contextMenuDict = {
     'Fork in Current Workspace': '在当前工作区中创建分支对话',
     'Fork in Shared Workspace': '在共享工作区中创建分支对话',
     'Fork in New Workspace': '在新工作区中创建分支对话',
+    'Fork in Current Folder': '在当前文件夹中创建分支对话',
+    'Fork in New Git Worktree': '在新建 Git 工作树中创建分支对话',
+    'Remove from Recent': '从最近记录中移除',
+    'Pin / Unpin Conversation': '置顶 / 取消置顶会话',
+    'Reset Zoom': '重置缩放',
+    'Create Project': '创建项目',
+    'Open Command Palette': '打开命令面板',
     'Stop': '停止',
     'Telemetry': '遥测数据',
     'Move to Group': '移动到分组',

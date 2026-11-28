@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README_EN.md)
 
-> 专为 **Antigravity** 打造的免费开源中文汉化工具。**无需配置 Python 或其他环境**，下载后双击即可一键汉化（实测兼容 `v2.28.2 ~ v2.31.2`），汉化前自动备份原文件，随时可无损还原为官方英文版。
+> 专为 **Antigravity** 打造的免费开源中文汉化工具。**无需配置 Python 或其他环境**，下载后双击即可一键汉化（实测兼容 `v2.28.2 ~ v2.36.0`），汉化前自动备份原文件，随时可无损还原为官方英文版。
 
 ---
 
@@ -90,7 +90,7 @@ node tests/verify_e2e.js --dist-dir "/path/to/extracted/dist"
 
 ### 4. 核心实现与目录结构
 
-- 内置 **6,658 条** UI 词典（`dict/master_merged_dict.json`），覆盖前端动态 DOM / Shadow DOM（`src/engine_preload.js`）与 Electron 主进程菜单、托盘、右键菜单、更新器及 Passkey 提示（`src/patches_main.py`）。
+- 内置 **6,960 条** UI 词典（`dict/master_merged_dict.json`），覆盖前端动态 DOM / Shadow DOM（`src/engine_preload.js`）与 Electron 主进程菜单、托盘、右键菜单、更新器及 Passkey 提示（`src/patches_main.py`）。
 - 内置纯 Python ASAR 编解码器（`src/asar_codec.py`），支持 SHA-256 完整性校验，普通用户无需安装 Node.js。
 
 ```text
